@@ -1,15 +1,143 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// ======================
+// GENERATOR & DATASOURCE
+// ======================
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+
+// ======================
+// ENUMS
+// ======================
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum RouteStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CrowdLevel {
+  LOW
+  MODERATE
+  HIGH
+}
+
+
+// ======================
+// USER MODEL
+// ======================
+
+model User {
+  id             String      @id @default(uuid())
+  name           String
+  email          String      @unique
+  passwordHash   String
+  role           Role        @default(STUDENT)
+  locationOptIn  Boolean     @default(false)
+  isVerified     Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  telemetry      Telemetry[]
+}
+
+
+
+// ======================
+// ROUTE MODEL
+// ======================
+
+model Route {
+  id        String        @id @default(uuid())
+  name      String
+  status    RouteStatus   @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  stops     Stop[]
+  buses     Bus[]
+}
+
+
+
+// ======================
+// STOP MODEL
+// ======================
+
+model Stop {
+  id          String     @id @default(uuid())
+  name        String
+  latitude    Float
+  longitude   Float
+  order       Int
+  crowdLevel  CrowdLevel @default(LOW)
+
+  routeId     String
+  route       Route      @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([routeId])
+}
+
+
+
+// ======================
+// BUS MODEL
+// ======================
+
+model Bus {
+  id           String     @id @default(uuid())
+  plateNumber  String     @unique
+  latitude     Float?
+  longitude    Float?
+  speed        Float?
+  lastUpdate   DateTime?
+
+  routeId      String
+  route        Route      @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  telemetry    Telemetry[]
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([routeId])
+}
+
+
+
+// ======================
+// TELEMETRY MODEL
+// ======================
+
+model Telemetry {
+  id         String    @id @default(uuid())
+  latitude   Float
+  longitude  Float
+  speed      Float?
+  timestamp  DateTime  @default(now())
+
+  userId     String?
+  busId      String?
+
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bus        Bus?      @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([busId])
+  @@index([timestamp])
 }
