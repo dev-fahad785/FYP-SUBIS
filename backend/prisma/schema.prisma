@@ -47,7 +47,8 @@ model User {
   isVerified     Boolean     @default(false)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
-
+  otp            String?
+  otpExpiry      DateTime?
   telemetry      Telemetry[]
 }
 
