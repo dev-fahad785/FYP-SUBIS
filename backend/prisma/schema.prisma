@@ -90,6 +90,7 @@ model Stop {
   updatedAt   DateTime   @updatedAt
 
   @@index([routeId])
+  @@unique([routeId,order])
 }
 
 
