@@ -16,6 +16,7 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
+  //register user, hash password, generate OTP, save to DB, send OTP email
   async register(dto: RegisterDto) {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -43,6 +44,7 @@ export class AuthService {
     return { message: 'User registered. Verify OTP.' };
   }
 
+  //login user and return JWT
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -57,11 +59,14 @@ export class AuthService {
     }
 
     const payload = { sub: user.id, role: user.role };
+    console.log('JWT Payload:', payload);
 
     const token = await this.jwtService.signAsync(payload);
 
     return { access_token: token };
   }
+
+  //verify OTP and activate account
   async verifyOtp(dto: VerifyOtpDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
