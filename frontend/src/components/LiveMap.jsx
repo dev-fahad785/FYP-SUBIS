@@ -13,14 +13,39 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Custom Red Bus Icon
-const busIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+// Custom Bus Icon — red circle with bus emoji
+const busIcon = L.divIcon({
+  html: `
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div style="
+        width:38px;
+        height:38px;
+        border-radius:50%;
+        background:#dc2626;
+        border:3px solid white;
+        box-shadow:0 2px 6px rgba(0,0,0,0.45);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:20px;
+      ">🚌</div>
+      <div style="
+        margin-top:3px;
+        background:#dc2626;
+        color:white;
+        font-size:10px;
+        font-weight:700;
+        padding:1px 6px;
+        border-radius:8px;
+        white-space:nowrap;
+        box-shadow:0 1px 4px rgba(0,0,0,0.35);
+      ">Bus</div>
+    </div>
+  `,
+  className: '',
+  iconSize: [38, 60],
+  iconAnchor: [19, 60],
+  popupAnchor: [0, -60],
 });
 
 // Custom Blue Stop Icon
