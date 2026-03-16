@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   NotFoundException,
   Param,
   Post,
@@ -18,11 +19,17 @@ type AddStopDto = {
 @Controller('routes')
 export class RoutesController {
   constructor(private readonly routesService: RoutesService) {}
+
+  @Get()
+  async getActiveRoutes() {
+    return this.routesService.getAllActiveRoutes();
+  }
+
   @Post(':routeId/stops')
   async addStop(
     @Param('routeId') routeId: string,
     @Body()
-    body: { name: string; latitude: number; longitude: number; order: number },
+    body: { name: string; latitude: number; longitude: number; order: number }
   ) {
     return this.routesService.addStop(routeId, body);
   }
