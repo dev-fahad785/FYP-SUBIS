@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import LiveMap from './components/LiveMap';
 import './App.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 const TOKEN_KEY = 'auth_token';
 const EMAIL_KEY = 'auth_email';
+const NAME_KEY = 'auth_name';
 
 function App() {
   const [step, setStep] = useState('register');
@@ -12,6 +14,7 @@ function App() {
   const [error, setError] = useState('');
   const [authToken, setAuthToken] = useState('');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
+  const [currentUserName, setCurrentUserName] = useState('');
 
   const [registerForm, setRegisterForm] = useState({
     name: '',
@@ -33,9 +36,11 @@ function App() {
   useEffect(() => {
     const storedToken = localStorage.getItem(TOKEN_KEY);
     const storedEmail = localStorage.getItem(EMAIL_KEY);
+    const storedName = localStorage.getItem(NAME_KEY);
     if (storedToken) {
       setAuthToken(storedToken);
       setCurrentUserEmail(storedEmail || '');
+      setCurrentUserName(storedName || '');
       setStep('home');
     }
   }, []);
@@ -79,6 +84,9 @@ function App() {
       }
       setMessage(data.message || 'OTP sent to your email.');
       setOtpForm((prev) => ({ ...prev, email: registerForm.email }));
+      // Persist name so it survives to the home screen after login
+      localStorage.setItem(NAME_KEY, registerForm.name);
+      setCurrentUserName(registerForm.name);
       setStep('otp');
     } catch (err) {
       setError(err.message || 'Something went wrong');
@@ -331,21 +339,20 @@ function App() {
         )}
 
         {step === 'home' && (
-          <div className="home-card">
-            <div className="pill">Signed in</div>
-            <h2>Welcome{currentUserEmail ? `, ${currentUserEmail}` : ''}!</h2>
-            <p className="lede">You are authenticated. Continue to the app or sign out.</p>
-            <div className="actions">
-              <button className="ghost" type="button" onClick={() => setStepAndClear('login')}>
-                Switch account
-              </button>
-              <button className="primary" type="button" onClick={handleLogout}>
+          <div className="home-layout" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div className="home-header" style={{ padding: '0 0 1rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div className="pill">Live Map</div>
+                <h2 style={{ marginTop: '0.5rem' }}>Welcome{currentUserEmail ? `, ${currentUserEmail}` : ''}!</h2>
+              </div>
+              <button className="ghost" type="button" onClick={handleLogout}>
                 Log out
               </button>
             </div>
-            {authToken && (
-              <p className="token-note">Token stored in memory for this session.</p>
-            )}
+            
+            <div className="map-container" style={{ flex: 1, position: 'relative', minHeight: '60vh', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.1)', overflow: 'hidden' }}>
+              <LiveMap userName={currentUserName || currentUserEmail.split('@')[0] || 'Student'} />
+            </div>
           </div>
         )}
       </div>

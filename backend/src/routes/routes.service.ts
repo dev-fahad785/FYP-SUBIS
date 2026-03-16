@@ -1,17 +1,28 @@
 import {
   Injectable,
   NotFoundException,
-  BadRequestException,
+  BadRequestException, // Keep BadRequestException as it's used in other methods
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class RoutesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {} // Added 'readonly'
+
+  async getAllActiveRoutes() {
+    return this.prisma.route.findMany({
+      where: { status: 'ACTIVE' },
+      include: {
+        stops: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+  }
 
   async addStop(
     routeId: string,
-    data: { name: string; latitude: number; longitude: number; order: number },
+    data: { name: string; latitude: number; longitude: number; order: number }
   ) {
     const { name, latitude, longitude, order } = data;
 

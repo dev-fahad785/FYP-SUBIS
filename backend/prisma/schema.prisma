@@ -61,6 +61,8 @@ model User {
 model Route {
   id        String        @id @default(uuid())
   name      String
+  color     String?       @default("#3B82F6")
+  polyline  Json?         // Stores array of [lat, lng] coordinates
   status    RouteStatus   @default(ACTIVE)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
