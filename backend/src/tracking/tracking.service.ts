@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CrowdLevel } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -13,8 +14,9 @@ export class TrackingService {
     latitude: number;
     longitude: number;
     speed: number;
+    crowdLevel?: CrowdLevel;
   }) {
-    const { busId, routeId, latitude, longitude, speed } = data;
+    const { busId, routeId, latitude, longitude, speed, crowdLevel = CrowdLevel.LOW } = data;
 
     // 1. Update the Bus current state (first, to ensure it exists for foreign keys)
     const bus = await this.prisma.bus.upsert({
@@ -23,16 +25,18 @@ export class TrackingService {
         latitude,
         longitude,
         speed,
+        crowdLevel,
         routeId,
         lastUpdate: new Date(),
       },
       create: {
         id: busId,
-        plateNumber: `BUS-${Math.floor(Math.random() * 10000)}`, // Dummy plate for auto-creation
+        plateNumber: `BUS-${Math.floor(Math.random() * 10000)}`,
         routeId,
         latitude,
         longitude,
         speed,
+        crowdLevel,
         lastUpdate: new Date(),
       },
       include: {
@@ -89,6 +93,7 @@ export class TrackingService {
       latitude: bus.latitude,
       longitude: bus.longitude,
       speed: bus.speed,
+      crowdLevel: bus.crowdLevel,
       lastUpdate: bus.lastUpdate,
       etas,
     };
