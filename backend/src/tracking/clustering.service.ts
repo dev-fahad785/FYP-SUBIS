@@ -96,7 +96,7 @@ export class ClusteringService {
 
     // 2. Simple Radius Clustering (O(n^2) is fine for small N)
     const CLUSTER_RADIUS_METERS = 30; // Students within 30m of each other are grouped
-    const MIN_STUDENTS_FOR_BUS = 3;
+    const MIN_STUDENTS_FOR_BUS = 2;
 
     const clusters: StudentLocation[][] = [];
     const visited = new Set<string>();
@@ -172,9 +172,19 @@ export class ClusteringService {
           isCrowdsourced: true,
           studentsInCluster: cluster.length,
           probabilityScore: probabilityScore,
+          studentIds: cluster.map((s) => s.userId), // Include student IDs in cluster
         };
 
         this.trackingGateway.server.emit('bus_moved', broadcastPayload);
+        // Hide individual student data by removing them from activeStudents
+        // Once students are part of a bus cluster, their individual locations are not broadcast
+        for (const student of cluster) {
+          this.activeStudents.delete(student.userId);
+          this.logger.debug(
+            `Student ${student.userId} added to bus cluster ${dynamicBusId} - individual data hidden`,
+          );
+        }
+
         busCounter++;
       }
     }
