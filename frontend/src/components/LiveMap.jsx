@@ -58,6 +58,32 @@ const stopIcon = new L.Icon({
   shadowSize: [32, 32]
 });
 
+// Function to get stop icon color based on route color
+function getStopIconUrl(routeColor) {
+  // Map route colors to leaflet marker colors
+  const colorMap = {
+    '#EF4444': 'red',       // Route 1 - Red
+    '#3B82F6': 'blue',      // Route 2 - Blue
+    '#10B981': 'green',     // Route 3 - Green
+    '#F59E0B': 'orange',    // Route 4 - Amber
+  };
+
+  const markerColor = colorMap[routeColor] || 'blue'; // Default to blue if unknown color
+  return `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${markerColor}.png`;
+}
+
+// Factory function to create stop icon with route color
+function createStopIcon(routeColor) {
+  return new L.Icon({
+    iconUrl: getStopIconUrl(routeColor),
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+    iconSize: [20, 32],
+    iconAnchor: [10, 32],
+    popupAnchor: [1, -24],
+    shadowSize: [32, 32]
+  });
+}
+
 // Factory to create a labeled divIcon: a colored circle avatar + name badge beneath
 function createLabeledIcon(color, label, isSelf = false) {
   const size = isSelf ? 36 : 30;
@@ -270,13 +296,13 @@ export default function LiveMap({ userName = 'You' }) {
                 pathOptions={{ color: route.color || '#3B82F6', weight: 4 }}
               />
             )}
-            
+
             {/* Draw Stops */}
             {(route.stops || []).map((stop) => (
               <Marker
                 key={stop.id}
                 position={[stop.latitude, stop.longitude]}
-                icon={stopIcon}
+                icon={createStopIcon(route.color)}
               >
                 <Popup>
                   <strong>{stop.name}</strong><br />
