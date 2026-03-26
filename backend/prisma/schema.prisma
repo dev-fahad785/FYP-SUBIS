@@ -107,6 +107,7 @@ model Bus {
   latitude     Float?
   longitude    Float?
   speed        Float?
+  crowdLevel   CrowdLevel @default(LOW)
   lastUpdate   DateTime?
 
   routeId      String
