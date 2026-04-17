@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import AdminDashboard from './components/AdminDashboard';
 import LiveMap from './components/LiveMap';
 import './App.css';
 
@@ -6,6 +7,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 const TOKEN_KEY = 'auth_token';
 const EMAIL_KEY = 'auth_email';
 const NAME_KEY = 'auth_name';
+const ROLE_KEY = 'auth_role';
 
 function App() {
   const [step, setStep] = useState('register');
@@ -15,6 +17,7 @@ function App() {
   const [authToken, setAuthToken] = useState('');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [currentUserName, setCurrentUserName] = useState('');
+  const [currentUserRole, setCurrentUserRole] = useState('');
 
   const [registerForm, setRegisterForm] = useState({
     name: '',
@@ -37,10 +40,13 @@ function App() {
     const storedToken = localStorage.getItem(TOKEN_KEY);
     const storedEmail = localStorage.getItem(EMAIL_KEY);
     const storedName = localStorage.getItem(NAME_KEY);
+    const storedRole = localStorage.getItem(ROLE_KEY);
+
     if (storedToken) {
       setAuthToken(storedToken);
       setCurrentUserEmail(storedEmail || '');
       setCurrentUserName(storedName || '');
+      setCurrentUserRole(storedRole || '');
       setStep('home');
     }
   }, []);
@@ -69,9 +75,11 @@ function App() {
   const handleRegister = async (event) => {
     event.preventDefault();
     if (!canSubmitRegister) return;
+
     setIsSubmitting(true);
     setError('');
     setMessage('');
+
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
@@ -79,12 +87,13 @@ function App() {
         body: JSON.stringify(registerForm),
       });
       const data = await res.json();
+
       if (!res.ok) {
         throw new Error(data.message || 'Registration failed');
       }
+
       setMessage(data.message || 'OTP sent to your email.');
       setOtpForm((prev) => ({ ...prev, email: registerForm.email }));
-      // Persist name so it survives to the home screen after login
       localStorage.setItem(NAME_KEY, registerForm.name);
       setCurrentUserName(registerForm.name);
       setStep('otp');
@@ -98,9 +107,11 @@ function App() {
   const handleVerifyOtp = async (event) => {
     event.preventDefault();
     if (!canSubmitOtp) return;
+
     setIsSubmitting(true);
     setError('');
     setMessage('');
+
     try {
       const res = await fetch(`${API_BASE}/auth/verify-otp`, {
         method: 'POST',
@@ -108,9 +119,11 @@ function App() {
         body: JSON.stringify(otpForm),
       });
       const data = await res.json();
+
       if (!res.ok) {
         throw new Error(data.message || 'OTP verification failed');
       }
+
       setMessage(data.message || 'Account verified successfully. Please log in.');
       setLoginForm((prev) => ({ ...prev, email: otpForm.email }));
       setStep('login');
@@ -124,9 +137,11 @@ function App() {
   const handleLogin = async (event) => {
     event.preventDefault();
     if (!canSubmitLogin) return;
+
     setIsSubmitting(true);
     setError('');
     setMessage('');
+
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
@@ -134,13 +149,25 @@ function App() {
         body: JSON.stringify(loginForm),
       });
       const data = await res.json();
+
       if (!res.ok) {
         throw new Error(data.message || 'Login failed');
       }
+
+      const nextName = data.name || currentUserName || loginForm.email.split('@')[0];
+      const nextEmail = data.email || loginForm.email;
+      const nextRole = data.role || 'STUDENT';
+
       setAuthToken(data.access_token);
-      setCurrentUserEmail(loginForm.email);
+      setCurrentUserEmail(nextEmail);
+      setCurrentUserName(nextName);
+      setCurrentUserRole(nextRole);
+
       localStorage.setItem(TOKEN_KEY, data.access_token);
-      localStorage.setItem(EMAIL_KEY, loginForm.email);
+      localStorage.setItem(EMAIL_KEY, nextEmail);
+      localStorage.setItem(NAME_KEY, nextName);
+      localStorage.setItem(ROLE_KEY, nextRole);
+
       setMessage('Logged in successfully.');
       setStep('home');
     } catch (err) {
@@ -153,8 +180,12 @@ function App() {
   const handleLogout = () => {
     setAuthToken('');
     setCurrentUserEmail('');
+    setCurrentUserName('');
+    setCurrentUserRole('');
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(EMAIL_KEY);
+    localStorage.removeItem(NAME_KEY);
+    localStorage.removeItem(ROLE_KEY);
     setStepAndClear('login');
   };
 
@@ -162,7 +193,7 @@ function App() {
     register: 'Create your account',
     otp: 'Verify your email',
     login: 'Welcome back',
-    home: 'Home',
+    home: currentUserRole === 'ADMIN' ? 'Admin Dashboard' : 'Home',
   }[step];
 
   const lede = {
@@ -170,7 +201,10 @@ function App() {
       'Sign up to access the student bus information system. We will email you a 6-digit code to verify your account.',
     otp: 'Enter the 6-digit code we sent to your email. Codes expire in 5 minutes.',
     login: 'Use your verified email to sign in.',
-    home: 'You are signed in. Explore the app or log out.',
+    home:
+      currentUserRole === 'ADMIN'
+        ? 'Oversee real-time bus operations, telemetry, and route data.'
+        : 'You are signed in. Explore the live student map or log out.',
   }[step];
 
   return (
@@ -338,23 +372,30 @@ function App() {
           </form>
         )}
 
-        {step === 'home' && (
-          <div className="home-layout" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div className="home-header" style={{ padding: '0 0 1rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div className="pill">Live Map</div>
-                <h2 style={{ marginTop: '0.5rem' }}>Welcome{currentUserEmail ? `, ${currentUserEmail}` : ''}!</h2>
+        {step === 'home' &&
+          (currentUserRole === 'ADMIN' ? (
+            <AdminDashboard
+              authToken={authToken}
+              currentUserName={currentUserName}
+              onLogout={handleLogout}
+            />
+          ) : (
+            <div className="home-layout">
+              <div className="home-header">
+                <div>
+                  <div className="pill">Live Map</div>
+                  <h2>Welcome{currentUserEmail ? `, ${currentUserEmail}` : ''}!</h2>
+                </div>
+                <button className="ghost" type="button" onClick={handleLogout}>
+                  Log out
+                </button>
               </div>
-              <button className="ghost" type="button" onClick={handleLogout}>
-                Log out
-              </button>
+
+              <div className="map-container">
+                <LiveMap userName={currentUserName || currentUserEmail.split('@')[0] || 'Student'} />
+              </div>
             </div>
-            
-            <div className="map-container" style={{ flex: 1, position: 'relative', minHeight: '60vh', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.1)', overflow: 'hidden' }}>
-              <LiveMap userName={currentUserName || currentUserEmail.split('@')[0] || 'Student'} />
-            </div>
-          </div>
-        )}
+          ))}
       </div>
     </div>
   );
