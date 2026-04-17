@@ -26,7 +26,7 @@ export class AuthController {
   }
   @Get('admin-data')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('ADMIN')
   getAdminData() {
     return { secretData: 'This is admin-only data' };
   }
