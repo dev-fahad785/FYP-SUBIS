@@ -8,6 +8,7 @@ import { IUB_ROUTES } from './simulator-data';
 
 /**
  * Automatically simulates Student locations for crowdsourced bus clustering.
+ * Also simulates real buses moving along routes with dynamic ETA and stops.
  */
 @Injectable()
 export class BusSimulatorService implements OnModuleInit {
@@ -72,6 +73,13 @@ export class BusSimulatorService implements OnModuleInit {
     },
   ];
 
+  // Simulated real buses on routes
+  private simulatedBuses = [
+    { busId: 'BUS_001', routeId: 'ROUTE_1', currentStopIndex: 0, speed: 40 },
+    { busId: 'BUS_002', routeId: 'ROUTE_2', currentStopIndex: 0, speed: 35 },
+    { busId: 'BUS_003', routeId: 'ROUTE_3', currentStopIndex: 0, speed: 38 },
+  ];
+
   constructor(
     private readonly trackingService: TrackingService,
     private readonly trackingGateway: TrackingGateway,
@@ -130,6 +138,7 @@ export class BusSimulatorService implements OnModuleInit {
 
   @Cron(CronExpression.EVERY_5_SECONDS)
   async simulateMovement() {
+    // 1. Simulate individual student movement (for clustering demo)
     for (const student of this.activeStudents) {
       if (student.speed > 0) {
         // Move the student slightly
@@ -151,6 +160,113 @@ export class BusSimulatorService implements OnModuleInit {
         speed: student.speed,
         timestamp: new Date(),
       });
+    }
+
+    // 2. Simulate real buses moving along routes
+    for (const bus of this.simulatedBuses) {
+      await this.simulateBusMovement(bus);
+    }
+  }
+
+  /**
+   * Simulate a bus moving along its route from stop to stop
+   */
+  private async simulateBusMovement(bus: any) {
+    try {
+      // Get route with stops
+      const route = await this.prisma.route.findUnique({
+        where: { id: bus.routeId },
+        include: {
+          stops: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      });
+
+      if (!route || route.stops.length === 0) return;
+
+      const stops = route.stops;
+      // If bus has reached the last stop, keep it there and stop moving
+      if (bus.currentStopIndex >= stops.length - 1) {
+        const lastStop = stops[stops.length - 1];
+        const prevStop = stops[stops.length - 2] || lastStop;
+        const updateResult = await this.trackingService.processGPSUpdate({
+          busId: bus.busId,
+          routeId: bus.routeId,
+          latitude: lastStop.latitude,
+          longitude: lastStop.longitude,
+          speed: 0,
+        });
+        const broadcastPayload = {
+          ...updateResult,
+          isSimulated: true,
+          currentStop: lastStop.name,
+          nextStop: null,
+          prevStop: prevStop.name,
+          speed: 0,
+          eta: 0,
+        };
+        this.trackingGateway.server.emit('bus_moved', broadcastPayload);
+        this.logger.debug(`Bus ${bus.busId} stopped at final stop: ${lastStop.name}`);
+        return;
+      }
+
+      // Move between stops sequentially
+      const currentStop = stops[bus.currentStopIndex];
+      const nextStop = stops[bus.currentStopIndex + 1];
+      const prevStop = bus.currentStopIndex > 0 ? stops[bus.currentStopIndex - 1] : null;
+
+      // Interpolate position between current and next stop (simulate movement)
+      const progress = (Math.floor(Date.now() / 5000) % 10) / 10; // 0-1 over 50 seconds per stop
+
+      const busLatitude =
+        currentStop.latitude +
+        (nextStop.latitude - currentStop.latitude) * progress;
+      const busLongitude =
+        currentStop.longitude +
+        (nextStop.longitude - currentStop.longitude) * progress;
+
+      // Calculate ETA (simple linear estimate)
+      const distance = Math.sqrt(
+        Math.pow(nextStop.latitude - busLatitude, 2) +
+        Math.pow(nextStop.longitude - busLongitude, 2)
+      );
+      // Assume speed in km/h, convert to degrees per second (rough estimate)
+      const speedDegreesPerSec = bus.speed * 0.00001;
+      const eta = speedDegreesPerSec > 0 ? distance / speedDegreesPerSec : 0;
+
+      // Move to next stop when progress completes
+      if (progress > 0.99) {
+        bus.currentStopIndex = bus.currentStopIndex + 1;
+      }
+
+      // Call TrackingService to update bus position with dynamic ETA
+      const updateResult = await this.trackingService.processGPSUpdate({
+        busId: bus.busId,
+        routeId: bus.routeId,
+        latitude: busLatitude,
+        longitude: busLongitude,
+        speed: bus.speed,
+      });
+
+      // Broadcast bus movement with simulator flag and extra info
+      const broadcastPayload = {
+        ...updateResult,
+        isSimulated: true,
+        currentStop: currentStop.name,
+        nextStop: nextStop.name,
+        prevStop: prevStop ? prevStop.name : null,
+        speed: bus.speed,
+        eta: Math.round(eta),
+      };
+
+      this.trackingGateway.server.emit('bus_moved', broadcastPayload);
+
+      this.logger.debug(
+        `Bus ${bus.busId} moving: ${currentStop.name} → ${nextStop.name} (Progress: ${(progress * 100).toFixed(0)}%, ETA: ${Math.round(eta)}s)`
+      );
+    } catch (error) {
+      this.logger.error(`Error simulating bus ${bus.busId}:`, error);
     }
   }
 }

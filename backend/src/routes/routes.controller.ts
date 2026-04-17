@@ -1,20 +1,16 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
-  NotFoundException,
   Param,
+  Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { RoutesService } from './routes.service';
-type AddStopDto = {
-  name: string;
-  latitude: number;
-  longitude: number;
-  order: number;
-};
+import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('routes')
 export class RoutesController {
@@ -26,15 +22,46 @@ export class RoutesController {
   }
 
   @Post(':routeId/stops')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   async addStop(
     @Param('routeId') routeId: string,
     @Body()
-    body: { name: string; latitude: number; longitude: number; order: number }
+    body: { name: string; latitude: number; longitude: number; order: number },
   ) {
     return this.routesService.addStop(routeId, body);
   }
+
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   async createRoute(@Body() body: { name: string }) {
     return this.routesService.createRoute(body.name);
+  }
+
+  @Patch(':routeId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async updateRoute(
+    @Param('routeId') routeId: string,
+    @Body() body: { name?: string; color?: string | null },
+  ) {
+    return this.routesService.updateRoute(routeId, body);
+  }
+
+  @Patch('stops/:stopId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async updateStop(
+    @Param('stopId') stopId: string,
+    @Body()
+    body: {
+      name?: string;
+      latitude?: number;
+      longitude?: number;
+      order?: number;
+    },
+  ) {
+    return this.routesService.updateStop(stopId, body);
   }
 }
