@@ -145,6 +145,7 @@ export default function LiveMap({ userName = 'You' }) {
   const [userLocation, setUserLocation] = useState(null);
   const [hasCenteredOnUser, setHasCenteredOnUser] = useState(false);
   const [otherStudents, setOtherStudents] = useState({});
+  const [useSimulated, setUseSimulated] = useState(false); // Toggle state
   // Generate a stable userId for this session to filter out our own broadcast
   const [myUserId] = useState(() => `WEB_USER_${Math.floor(Math.random() * 10000)}`);
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
@@ -174,8 +175,34 @@ export default function LiveMap({ userName = 'You' }) {
     fetchRoutes();
   }, [API_BASE]);
 
-  // Handle Real-Time Connection
+  // Fetch simulated bus data (stub: replace with your own logic or endpoint)
   useEffect(() => {
+    if (!useSimulated) return;
+    let intervalId;
+    const fetchSimulated = async () => {
+      try {
+        // Example: fetch from /simulator-data endpoint or static file
+        const response = await axios.get(`${API_BASE}/simulator-data`);
+        setBuses(response.data.buses || {});
+        setOtherStudents(response.data.students || {});
+      } catch (error) {
+        // fallback: generate fake data
+        setBuses({
+          'SIM1': {
+            busId: 'SIM1', latitude: 29.38, longitude: 71.77, speed: 30, lastUpdate: Date.now(), isSimulated: true
+          }
+        });
+        setOtherStudents({});
+      }
+    };
+    fetchSimulated();
+    intervalId = setInterval(fetchSimulated, 3000); // update every 3s
+    return () => clearInterval(intervalId);
+  }, [useSimulated, API_BASE]);
+
+  // Handle Real-Time Connection (only if not using simulated data)
+  useEffect(() => {
+    if (useSimulated) return;
     const socket = io(API_BASE);
     let watchId;
 
@@ -246,10 +273,28 @@ export default function LiveMap({ userName = 'You' }) {
       if (watchId) navigator.geolocation.clearWatch(watchId);
       socket.disconnect();
     };
-  }, [API_BASE]);
+  }, [API_BASE, useSimulated]);
 
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+      {/* Toggle Button */}
+      <div style={{ position: 'absolute', zIndex: 1000, top: 16, right: 16 }}>
+        <button
+          onClick={() => setUseSimulated((v) => !v)}
+          style={{
+            padding: '8px 16px',
+            background: useSimulated ? '#2563eb' : '#22c55e',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
+          }}
+        >
+          {useSimulated ? 'Show Real Data' : 'Show Simulated Data'}
+        </button>
+      </div>
       <MapContainer
         center={iubPosition}
         zoom={15}
@@ -271,19 +316,21 @@ export default function LiveMap({ userName = 'You' }) {
           </Marker>
         )}
 
-        {/* OTHER STUDENTS (received via WebSocket) */}
-        {Object.values(otherStudents).map((student) => (
-          <Marker
-            key={student.userId}
-            position={[student.latitude, student.longitude]}
-            icon={createLabeledIcon('#f59e0b', student.name || 'Student')}
-          >
-            <Popup>
-              <strong>🎓 {student.name || 'Student'}</strong><br />
-              Speed: {student.speed ? `${Number(student.speed).toFixed(1)} km/h` : 'Unknown'}<br />
-              Last seen: {new Date(student.timestamp).toLocaleTimeString()}
-            </Popup>
-          </Marker>
+        {/* OTHER STUDENTS (received via WebSocket or simulated) */}
+        {Object.values(otherStudents)
+          .filter(student => useSimulated || !student.isSimulated)
+          .map((student) => (
+            <Marker
+              key={student.userId}
+              position={[student.latitude, student.longitude]}
+              icon={createLabeledIcon('#f59e0b', student.name || 'Student')}
+            >
+              <Popup>
+                <strong>🎓 {student.name || 'Student'}</strong><br />
+                Speed: {student.speed ? `${Number(student.speed).toFixed(1)} km/h` : 'Unknown'}<br />
+                Last seen: {new Date(student.timestamp).toLocaleTimeString()}
+              </Popup>
+            </Marker>
         ))}
 
         {/* STATIC ROUTES & STOPS */}
@@ -314,34 +361,51 @@ export default function LiveMap({ userName = 'You' }) {
           </div>
         ))}
 
-        {/* DYNAMIC BUS MARKERS (From Websocket) */}
-        {Object.values(buses).map((bus) => (
-          <Marker
-            key={bus.busId}
-            position={[bus.latitude, bus.longitude]}
-            icon={busIcon}
-          >
-            <Popup>
-              <strong>Bus ID: {bus.busId}</strong>
-              {bus.isCrowdsourced && <span style={{ color: 'green', marginLeft: '8px', fontSize: '10px' }}>✓ Crowdsourced</span>}
-              <br />
-              Speed: {bus.speed ? `${bus.speed.toFixed(1)} km/h` : 'Stopped'}<br />
-              Last Update: {new Date(bus.lastUpdate).toLocaleTimeString()}
-              
-              {bus.etas && bus.etas.length > 0 && (
-                <div style={{ marginTop: '8px', borderTop: '1px solid #ccc', paddingTop: '4px' }}>
-                  <strong>Next Stops ETA:</strong>
-                  <ul style={{ paddingLeft: '20px', margin: '4px 0 0 0' }}>
-                    {bus.etas.slice(0, 3).map((eta) => ( // Show next 3 stops to save space
-                      <li key={eta.stopId}>
-                        {eta.stopName}: <strong>~{eta.estimatedMinutes} mins</strong> ({eta.distanceKm} km)
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </Popup>
-          </Marker>
+        {/* DYNAMIC BUS MARKERS (From Websocket or simulated) */}
+        {Object.values(buses)
+          .filter(bus => useSimulated || !bus.isSimulated)
+          .map((bus) => (
+            <Marker
+              key={bus.busId}
+              position={[bus.latitude, bus.longitude]}
+              icon={busIcon}
+            >
+              <Popup>
+                <strong>Bus ID: {bus.busId}</strong>
+                {bus.isCrowdsourced && <span style={{ color: 'green', marginLeft: '8px', fontSize: '10px' }}>✓ Crowdsourced</span>}
+                {bus.isSimulated && <span style={{ color: 'blue', marginLeft: '8px', fontSize: '10px' }}>🔄 Simulator</span>}
+                <br />
+                Speed: {bus.speed ? `${bus.speed.toFixed(1)} km/h` : 'Stopped'}<br />
+                Last Update: {new Date(bus.lastUpdate).toLocaleTimeString()}
+
+                {/* Current Stop Information */}
+                {bus.currentStop && (
+                  <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px solid #ddd', fontSize: '12px' }}>
+                    <strong>📍 Current Stop:</strong> {bus.currentStop}
+                  </div>
+                )}
+
+                {/* Next Stop Information */}
+                {bus.nextStop && (
+                  <div style={{ marginTop: '4px', fontSize: '12px' }}>
+                    <strong>➡️ Next Stop:</strong> {bus.nextStop}
+                  </div>
+                )}
+
+                {bus.etas && bus.etas.length > 0 && (
+                  <div style={{ marginTop: '8px', borderTop: '1px solid #ccc', paddingTop: '4px' }}>
+                    <strong>Next Stops ETA:</strong>
+                    <ul style={{ paddingLeft: '20px', margin: '4px 0 0 0', fontSize: '11px' }}>
+                      {bus.etas.slice(0, 3).map((eta) => ( // Show next 3 stops to save space
+                        <li key={eta.stopId}>
+                          {eta.stopName}: <strong>~{eta.estimatedMinutes} mins</strong> ({eta.distanceKm} km)
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </Popup>
+            </Marker>
         ))}
 
       </MapContainer>
