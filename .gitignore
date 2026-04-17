@@ -8,6 +8,7 @@ Thumbs.db
 .vscode/
 .idea/
 .agent
+.claude
 ################################
 # Environment Variables
 ################################
@@ -98,3 +99,4 @@ backend/.nest/
 ################################
 *.tgz
 *.tar.gz
+
