@@ -81,7 +81,7 @@ export default function LiveMap({ userName = 'Student' }) {
         }
       );
     } else {
-      setStatus('Geolocation is not supported in this browser.');
+      // setStatus('Geolocation is not supported in this browser.');
     }
 
     return () => {
