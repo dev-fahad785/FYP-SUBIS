@@ -16,7 +16,14 @@ export class TrackingService {
     speed: number;
     crowdLevel?: CrowdLevel;
   }) {
-    const { busId, routeId, latitude, longitude, speed, crowdLevel = CrowdLevel.LOW } = data;
+    const {
+      busId,
+      routeId,
+      latitude,
+      longitude,
+      speed,
+      crowdLevel = CrowdLevel.LOW,
+    } = data;
 
     // 1. Update the Bus current state (first, to ensure it exists for foreign keys)
     const bus = await this.prisma.bus.upsert({
@@ -239,41 +246,50 @@ export class TrackingService {
     }
 
     const sortedStops = [...stops].sort((a, b) => a.order - b.order);
-    const nearestStop = sortedStops.reduce((best, stop) => {
-      const distanceKm = this.calculateDistance(
-        latitude,
-        longitude,
-        stop.latitude,
-        stop.longitude,
-      );
+    const nearestStop = sortedStops.reduce(
+      (best, stop) => {
+        const distanceKm = this.calculateDistance(
+          latitude,
+          longitude,
+          stop.latitude,
+          stop.longitude,
+        );
 
-      if (!best || distanceKm < best.distanceKm) {
-        return {
-          stop,
-          distanceKm,
-        };
-      }
+        if (!best || distanceKm < best.distanceKm) {
+          return {
+            stop,
+            distanceKm,
+          };
+        }
 
-      return best;
-    }, null as null | { stop: (typeof sortedStops)[number]; distanceKm: number });
+        return best;
+      },
+      null as null | { stop: (typeof sortedStops)[number]; distanceKm: number },
+    );
 
     const nearestIndex = nearestStop
       ? sortedStops.findIndex((stop) => stop.id === nearestStop.stop.id)
       : -1;
     const isAtStop = Boolean(nearestStop && nearestStop.distanceKm <= 0.08);
-    const currentStop = isAtStop ? nearestStop?.stop.name ?? null : null;
+    const currentStop = isAtStop ? (nearestStop?.stop.name ?? null) : null;
     const nextStopCandidate =
       nearestIndex >= 0
-        ? sortedStops[Math.min(nearestIndex + (isAtStop ? 1 : 0), sortedStops.length - 1)]
+        ? sortedStops[
+            Math.min(nearestIndex + (isAtStop ? 1 : 0), sortedStops.length - 1)
+          ]
         : null;
-    const nextStopEta = etas.find((eta) => eta.stopId === nextStopCandidate?.id);
+    const nextStopEta = etas.find(
+      (eta) => eta.stopId === nextStopCandidate?.id,
+    );
 
     return {
       currentStop,
       nextStop: nextStopCandidate?.name ?? null,
       nextStopEtaMinutes: nextStopEta?.estimatedMinutes ?? null,
       nearestStop: nearestStop?.stop.name ?? null,
-      nearestStopDistanceKm: nearestStop ? nearestStop.distanceKm.toFixed(2) : null,
+      nearestStopDistanceKm: nearestStop
+        ? nearestStop.distanceKm.toFixed(2)
+        : null,
     };
   }
 }
