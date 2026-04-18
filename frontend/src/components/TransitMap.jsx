@@ -159,6 +159,18 @@ export default function TransitMap({
                 Speed:{' '}
                 {typeof bus.speed === 'number' ? `${Number(bus.speed).toFixed(1)} km/h` : 'Unknown'}
               </div>
+              {bus.probabilityScore && <div>Confidence: {bus.probabilityScore}%</div>}
+              {bus.currentStop && <div>Current stop: {bus.currentStop}</div>}
+              {bus.nextStop && <div>Next stop: {bus.nextStop}</div>}
+              {typeof bus.nextStopEtaMinutes === 'number' && (
+                <div>ETA to next stop: {bus.nextStopEtaMinutes} min</div>
+              )}
+              {bus.nearestStop && (
+                <div>
+                  Nearest stop: {bus.nearestStop}
+                  {bus.nearestStopDistanceKm ? ` (${bus.nearestStopDistanceKm} km)` : ''}
+                </div>
+              )}
               {bus.lastUpdate && (
                 <div>
                   Updated:{' '}

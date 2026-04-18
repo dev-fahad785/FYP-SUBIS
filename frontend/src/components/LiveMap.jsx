@@ -10,6 +10,7 @@ export default function LiveMap({ userName = 'Student' }) {
   const [userLocation, setUserLocation] = useState(null);
   const [status, setStatus] = useState('Waiting for location permission...');
   const [mapCenter, setMapCenter] = useState([29.3783, 71.7738]);
+  const [selectedRouteId, setSelectedRouteId] = useState('');
   const [userId] = useState(() => `WEB_USER_${Math.floor(Math.random() * 100000)}`);
 
   useEffect(() => {
@@ -47,6 +48,17 @@ export default function LiveMap({ userName = 'Student' }) {
         [payload.busId]: payload,
       }));
       setStatus('Live bus updates connected.');
+    });
+
+    socket.on('buses_snapshot', (snapshot) => {
+      const nextBuses = {};
+      for (const bus of snapshot) {
+        nextBuses[bus.busId] = bus;
+      }
+      setBuses(nextBuses);
+      if (snapshot.length > 0) {
+        setStatus('Loaded active buses from live snapshot.');
+      }
     });
 
     socket.on('connect_error', () => {
@@ -93,6 +105,14 @@ export default function LiveMap({ userName = 'Student' }) {
   }, [userId, userName]);
 
   const busList = useMemo(() => Object.values(buses), [buses]);
+  const filteredBuses = useMemo(
+    () => busList.filter((bus) => !selectedRouteId || bus.routeId === selectedRouteId),
+    [busList, selectedRouteId]
+  );
+  const filteredRoutes = useMemo(
+    () => routes.filter((route) => !selectedRouteId || route.id === selectedRouteId),
+    [routes, selectedRouteId]
+  );
 
   return (
     <div className="student-map-layout">
@@ -104,11 +124,58 @@ export default function LiveMap({ userName = 'Student' }) {
         </div>
         <div className="metric-card compact">
           <span className="metric-label">Tracked buses</span>
-          <strong>{busList.length}</strong>
+          <strong>{filteredBuses.length}</strong>
         </div>
       </div>
 
-      <TransitMap routes={routes} buses={busList} userLocation={userLocation} center={mapCenter} />
+      <div className="student-layout-grid">
+        <div className="student-side-panel">
+          <label className="field">
+            <span>Route filter</span>
+            <select
+              value={selectedRouteId}
+              onChange={(event) => setSelectedRouteId(event.target.value)}
+            >
+              <option value="">All routes</option>
+              {routes.map((route) => (
+                <option key={route.id} value={route.id}>
+                  {route.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="bus-insights-list">
+            {filteredBuses.length === 0 && <div className="panel-empty">No active buses yet.</div>}
+            {filteredBuses.map((bus) => (
+              <article key={bus.busId} className="bus-insight-card">
+                <strong>{bus.routeName || bus.plateNumber || bus.busId}</strong>
+                <p>
+                  Speed:{' '}
+                  {typeof bus.speed === 'number' ? `${Number(bus.speed).toFixed(1)} km/h` : 'Unknown'}
+                </p>
+                {bus.currentStop && <p>Current stop: {bus.currentStop}</p>}
+                {bus.nextStop && <p>Next stop: {bus.nextStop}</p>}
+                {typeof bus.nextStopEtaMinutes === 'number' && (
+                  <p>ETA to next stop: {bus.nextStopEtaMinutes} min</p>
+                )}
+                {bus.probabilityScore && (
+                  <p>
+                    Cluster confidence: {bus.probabilityScore}%{bus.probabilityLabel ? ` · ${bus.probabilityLabel}` : ''}
+                  </p>
+                )}
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <TransitMap
+          routes={filteredRoutes}
+          buses={filteredBuses}
+          userLocation={userLocation}
+          center={mapCenter}
+        />
+      </div>
     </div>
   );
 }
