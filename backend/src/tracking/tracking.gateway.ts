@@ -26,7 +26,7 @@ export class TrackingGateway {
   ) {}
 
   // When a new client connects, send them the current snapshot of all active students
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     const activeStudents = this.clusteringService.getActiveStudents();
     if (activeStudents.length > 0) {
       const snapshot = activeStudents.map((s) => ({
@@ -38,6 +38,11 @@ export class TrackingGateway {
         timestamp: s.timestamp.toISOString(),
       }));
       client.emit('students_snapshot', snapshot);
+    }
+
+    const activeBuses = await this.trackingService.getActiveBusSnapshot();
+    if (activeBuses.length > 0) {
+      client.emit('buses_snapshot', activeBuses);
     }
   }
 
@@ -64,16 +69,6 @@ export class TrackingGateway {
         longitude: data.longitude,
         speed: data.speed,
         timestamp: new Date(),
-      });
-
-      // Broadcast student's location to ALL connected clients so they can see each other
-      this.server.emit('student_moved', {
-        userId: data.userId,
-        name: (data as any).name || 'Student',
-        latitude: data.latitude,
-        longitude: data.longitude,
-        speed: data.speed,
-        timestamp: new Date().toISOString(),
       });
 
       return { status: 'queued for clustering' };

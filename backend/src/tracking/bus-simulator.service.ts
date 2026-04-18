@@ -20,7 +20,7 @@ export class BusSimulatorService implements OnModuleInit {
 
   // Active simulated students
   private activeStudents = [
-    // A group of 4 students moving fast together (will be clustered into a Bus)
+    // A group of 5 students moving fast together (will be clustered into a bus)
     {
       id: 'STUDENT_001',
       lat: 29.375,
@@ -50,6 +50,14 @@ export class BusSimulatorService implements OnModuleInit {
       lat: 29.375,
       lng: 71.77002,
       speed: 30,
+      angle: 0,
+      group: 'A',
+    },
+    {
+      id: 'STUDENT_007',
+      lat: 29.37502,
+      lng: 71.77003,
+      speed: 31,
       angle: 0,
       group: 'A',
     },
