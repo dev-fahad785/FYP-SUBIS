@@ -32,6 +32,7 @@ const busIcon = L.divIcon({
   iconAnchor: [19, 19],
 });
 
+export default TransitMap;
 function createStopIcon(color = '#3B82F6') {
   return L.divIcon({
     className: 'transit-icon-wrapper',
@@ -93,9 +94,10 @@ function ClickCapture({ onMapClick }) {
   return null;
 }
 
-export default function TransitMap({
+function TransitMap({
   routes = [],
   buses = [],
+  students = [],
   userLocation = null,
   center = DEFAULT_CENTER,
   zoom = 14,
@@ -168,6 +170,23 @@ export default function TransitMap({
                   })}
                 </div>
               )}
+            </Popup>
+          </Marker>
+        ))}
+
+
+        {students && students.map((student) => (
+          <Marker
+            key={student.userId}
+            position={[student.latitude, student.longitude]}
+            icon={createUserIcon(student.name || 'S', '#10B981')}
+          >
+            <Popup>
+              <strong>{student.name || 'Student'}</strong>
+              <div>{student.status === 'waiting' ? 'Waiting at stop' : 'Student device'}</div>
+              <div>
+                {student.latitude.toFixed(5)}, {student.longitude.toFixed(5)}
+              </div>
             </Popup>
           </Marker>
         ))}
