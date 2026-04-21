@@ -96,6 +96,7 @@ function ClickCapture({ onMapClick }) {
 export default function TransitMap({
   routes = [],
   buses = [],
+  students = [],
   userLocation = null,
   center = DEFAULT_CENTER,
   zoom = 14,
@@ -180,6 +181,22 @@ export default function TransitMap({
                   })}
                 </div>
               )}
+            </Popup>
+          </Marker>
+        ))}
+
+        {students.map((student) => (
+          <Marker
+            key={student.userId}
+            position={[student.latitude, student.longitude]}
+            icon={createUserIcon(student.name || 'S', '#F59E0B')}
+          >
+            <Popup>
+              <strong>{student.name || 'Student'}</strong>
+              <div>{student.status === 'waiting' ? 'Waiting at stop' : 'Student device'}</div>
+              <div>
+                {student.latitude.toFixed(5)}, {student.longitude.toFixed(5)}
+              </div>
             </Popup>
           </Marker>
         ))}
