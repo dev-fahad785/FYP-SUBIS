@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -44,7 +39,9 @@ export class AdminController {
 
   @Get('analytics')
   getAnalytics(@Query('range') range?: 'daily' | 'weekly') {
-    return this.adminService.getAnalytics(range === 'weekly' ? 'weekly' : 'daily');
+    return this.adminService.getAnalytics(
+      range === 'weekly' ? 'weekly' : 'daily',
+    );
   }
 
   @Get('geocode')

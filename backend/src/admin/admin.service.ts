@@ -27,7 +27,7 @@ export class AdminService {
     const url = new URL('https://nominatim.openstreetmap.org/search');
     url.searchParams.set(
       'q',
-      `${normalizedQuery}, Bahawalpur, Punjab, Pakistan`
+      `${normalizedQuery}, Bahawalpur, Punjab, Pakistan`,
     );
     url.searchParams.set('format', 'jsonv2');
     url.searchParams.set('limit', '5');
@@ -35,7 +35,7 @@ export class AdminService {
     url.searchParams.set('countrycodes', 'pk');
     url.searchParams.set(
       'viewbox',
-      `${BAHAWALPUR_BOUNDS.west},${BAHAWALPUR_BOUNDS.north},${BAHAWALPUR_BOUNDS.east},${BAHAWALPUR_BOUNDS.south}`
+      `${BAHAWALPUR_BOUNDS.west},${BAHAWALPUR_BOUNDS.north},${BAHAWALPUR_BOUNDS.east},${BAHAWALPUR_BOUNDS.south}`,
     );
     url.searchParams.set('bounded', '1');
 
@@ -73,7 +73,7 @@ export class AdminService {
             item.longitude >= BAHAWALPUR_BOUNDS.west &&
             item.longitude <= BAHAWALPUR_BOUNDS.east &&
             item.latitude >= BAHAWALPUR_BOUNDS.south &&
-            item.latitude <= BAHAWALPUR_BOUNDS.north
+            item.latitude <= BAHAWALPUR_BOUNDS.north,
         );
 
       return {
@@ -90,7 +90,7 @@ export class AdminService {
       }
 
       throw new BadGatewayException(
-        'Unable to search for that location right now'
+        'Unable to search for that location right now',
       );
     }
   }
@@ -356,7 +356,7 @@ export class AdminService {
 
     telemetry.forEach((item) => {
       const diffHours = Math.floor(
-        (now.getTime() - item.timestamp.getTime()) / (60 * 60 * 1000)
+        (now.getTime() - item.timestamp.getTime()) / (60 * 60 * 1000),
       );
       const bucketIndex = 23 - diffHours;
       if (bucketIndex >= 0 && bucketIndex < buckets.length) {
@@ -374,7 +374,7 @@ export class AdminService {
 
     const buckets = Array.from({ length: 7 }, (_, index) => {
       const bucketDate = new Date(
-        now.getTime() - (6 - index) * 24 * 60 * 60 * 1000
+        now.getTime() - (6 - index) * 24 * 60 * 60 * 1000,
       );
       const label = formatter.format(bucketDate);
       return {
@@ -385,7 +385,7 @@ export class AdminService {
 
     telemetry.forEach((item) => {
       const diffDays = Math.floor(
-        (now.getTime() - item.timestamp.getTime()) / (24 * 60 * 60 * 1000)
+        (now.getTime() - item.timestamp.getTime()) / (24 * 60 * 60 * 1000),
       );
       const bucketIndex = 6 - diffDays;
       if (bucketIndex >= 0 && bucketIndex < buckets.length) {

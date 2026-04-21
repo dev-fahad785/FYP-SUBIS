@@ -96,6 +96,7 @@ function ClickCapture({ onMapClick }) {
 export default function TransitMap({
   routes = [],
   buses = [],
+  students = [],
   userLocation = null,
   center = DEFAULT_CENTER,
   zoom = 14,
@@ -159,6 +160,18 @@ export default function TransitMap({
                 Speed:{' '}
                 {typeof bus.speed === 'number' ? `${Number(bus.speed).toFixed(1)} km/h` : 'Unknown'}
               </div>
+              {bus.probabilityScore && <div>Confidence: {bus.probabilityScore}%</div>}
+              {bus.currentStop && <div>Current stop: {bus.currentStop}</div>}
+              {bus.nextStop && <div>Next stop: {bus.nextStop}</div>}
+              {typeof bus.nextStopEtaMinutes === 'number' && (
+                <div>ETA to next stop: {bus.nextStopEtaMinutes} min</div>
+              )}
+              {bus.nearestStop && (
+                <div>
+                  Nearest stop: {bus.nearestStop}
+                  {bus.nearestStopDistanceKm ? ` (${bus.nearestStopDistanceKm} km)` : ''}
+                </div>
+              )}
               {bus.lastUpdate && (
                 <div>
                   Updated:{' '}
@@ -168,6 +181,22 @@ export default function TransitMap({
                   })}
                 </div>
               )}
+            </Popup>
+          </Marker>
+        ))}
+
+        {students.map((student) => (
+          <Marker
+            key={student.userId}
+            position={[student.latitude, student.longitude]}
+            icon={createUserIcon(student.name || 'S', '#F59E0B')}
+          >
+            <Popup>
+              <strong>{student.name || 'Student'}</strong>
+              <div>{student.status === 'waiting' ? 'Waiting at stop' : 'Student device'}</div>
+              <div>
+                {student.latitude.toFixed(5)}, {student.longitude.toFixed(5)}
+              </div>
             </Popup>
           </Marker>
         ))}

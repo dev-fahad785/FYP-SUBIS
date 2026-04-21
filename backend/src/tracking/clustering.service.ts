@@ -2,6 +2,7 @@ import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { TrackingGateway } from './tracking.gateway';
 import { TrackingService } from './tracking.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface StudentLocation {
   userId: string;
@@ -12,15 +13,38 @@ interface StudentLocation {
   timestamp: Date;
 }
 
+interface RouteCandidate {
+  id: string;
+  name: string;
+  stops: Array<{
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    order: number;
+  }>;
+  polyline: Array<[number, number]>;
+}
+
+interface ActiveClusterState {
+  busId: string;
+  routeId: string;
+  latitude: number;
+  longitude: number;
+  lastSeenAt: Date;
+}
+
 @Injectable()
 export class ClusteringService {
   private readonly logger = new Logger(ClusteringService.name);
 
   // In-memory store of the latest location for each student
   private activeStudents: Map<string, StudentLocation> = new Map();
+  private activeClusters: Map<string, ActiveClusterState> = new Map();
 
   constructor(
     private readonly trackingService: TrackingService,
+    private readonly prisma: PrismaService,
     @Inject(forwardRef(() => TrackingGateway))
     private readonly trackingGateway: TrackingGateway,
   ) {}
@@ -86,17 +110,31 @@ export class ClusteringService {
         this.activeStudents.delete(userId); // Remove inactive students
         continue;
       }
-      // Assuming walking speed is around 5 km/h. > 15 km/h likely means they are in a vehicle.
-      if (loc.speed > 15) {
+      // Ignore walkers and stationary users.
+      if (loc.speed > 12) {
         activeLocations.push(loc);
       }
     }
 
     if (activeLocations.length === 0) return;
 
-    // 2. Simple Radius Clustering (O(n^2) is fine for small N)
-    const CLUSTER_RADIUS_METERS = 30; // Students within 30m of each other are grouped
-    const MIN_STUDENTS_FOR_BUS = 2;
+    const routes = await this.prisma.route.findMany({
+      where: { status: 'ACTIVE' },
+      include: {
+        stops: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    if (routes.length === 0) {
+      return;
+    }
+
+    // 2. Radius + speed clustering
+    const CLUSTER_RADIUS_METERS = 45;
+    const SPEED_TOLERANCE_KMH = 6;
+    const MIN_STUDENTS_FOR_BUS = 5;
 
     const clusters: StudentLocation[][] = [];
     const visited = new Set<string>();
@@ -118,8 +156,9 @@ export class ClusteringService {
           candidate.latitude,
           candidate.longitude,
         );
+        const speedDelta = Math.abs(current.speed - candidate.speed);
 
-        if (distance <= CLUSTER_RADIUS_METERS) {
+        if (distance <= CLUSTER_RADIUS_METERS && speedDelta <= SPEED_TOLERANCE_KMH) {
           currentCluster.push(candidate);
           visited.add(candidate.userId);
         }
@@ -129,7 +168,6 @@ export class ClusteringService {
     }
 
     // 3. Process the found clusters
-    let busCounter = 1;
     for (const cluster of clusters) {
       if (cluster.length >= MIN_STUDENTS_FOR_BUS) {
         // Calculate centroid
@@ -140,27 +178,30 @@ export class ClusteringService {
         const avgSpeed =
           cluster.reduce((sum, p) => sum + p.speed, 0) / cluster.length;
 
-        // The Bus ID could be tied to the route or a dynamic ID.
-        // For now, we dynamically assign an ID. In reality, we'd map it to the closest known Route.
-        const dynamicBusId = `CROWD_BUS_${busCounter}`;
+        const matchedRoute = this.findClosestRoute(avgLat, avgLng, routes);
+        if (!matchedRoute) {
+          continue;
+        }
 
-        // Let's assume ROUTE_RED for demonstration, or we'd calculate closest route.
-        const assumedRouteId = 'ROUTE_RED';
+        const dynamicBusId = this.resolveClusterBusId(
+          matchedRoute.id,
+          avgLat,
+          avgLng,
+          now,
+        );
 
-        // Probability is higher the more students there are (cap at 100%)
         const probabilityScore = Math.min(
-          100,
-          Math.round((cluster.length / 5) * 100),
+          98,
+          Math.max(60, Math.round(60 + (cluster.length - MIN_STUDENTS_FOR_BUS) * 8)),
         );
 
         this.logger.debug(
-          `Found Bus Cluster! ${cluster.length} students. Generated ID: ${dynamicBusId}. Prob: ${probabilityScore}%`,
+          `Found Bus Cluster! ${cluster.length} students. Bus: ${dynamicBusId}. Route: ${matchedRoute.id}. Prob: ${probabilityScore}%`,
         );
 
-        // Process through standard tracking flow (this logs telemetry and calculates ETA)
         const updateResult = await this.trackingService.processGPSUpdate({
           busId: dynamicBusId,
-          routeId: assumedRouteId,
+          routeId: matchedRoute.id,
           latitude: avgLat,
           longitude: avgLng,
           speed: avgSpeed,
@@ -171,22 +212,149 @@ export class ClusteringService {
           ...updateResult,
           isCrowdsourced: true,
           studentsInCluster: cluster.length,
-          probabilityScore: probabilityScore,
-          studentIds: cluster.map((s) => s.userId), // Include student IDs in cluster
+          probabilityScore,
+          probabilityLabel: this.describeProbability(probabilityScore),
+          clusterRadiusMeters: CLUSTER_RADIUS_METERS,
         };
 
         this.trackingGateway.server.emit('bus_moved', broadcastPayload);
-        // Hide individual student data by removing them from activeStudents
-        // Once students are part of a bus cluster, their individual locations are not broadcast
         for (const student of cluster) {
           this.activeStudents.delete(student.userId);
-          this.logger.debug(
-            `Student ${student.userId} added to bus cluster ${dynamicBusId} - individual data hidden`,
-          );
         }
-
-        busCounter++;
       }
     }
+  }
+
+  private findClosestRoute(
+    latitude: number,
+    longitude: number,
+    routes: Array<{
+      id: string;
+      name: string;
+      stops: Array<{
+        id: string;
+        name: string;
+        latitude: number;
+        longitude: number;
+        order: number;
+      }>;
+      polyline: unknown;
+    }>,
+  ): RouteCandidate | null {
+    let bestMatch: null | { route: RouteCandidate; distanceMeters: number } = null;
+
+    for (const route of routes) {
+      const pathPoints = this.normalizePolyline(route.polyline, route.stops);
+      if (pathPoints.length === 0) {
+        continue;
+      }
+
+      const distanceMeters = pathPoints.reduce((bestDistance, point) => {
+        const pointDistance = this.getDistanceMeters(
+          latitude,
+          longitude,
+          point[0],
+          point[1],
+        );
+        return Math.min(bestDistance, pointDistance);
+      }, Number.POSITIVE_INFINITY);
+
+      if (!bestMatch || distanceMeters < bestMatch.distanceMeters) {
+        bestMatch = {
+          route: {
+            id: route.id,
+            name: route.name,
+            stops: route.stops,
+            polyline: pathPoints,
+          },
+          distanceMeters,
+        };
+      }
+    }
+
+    if (!bestMatch || bestMatch.distanceMeters > 250) {
+      return null;
+    }
+
+    return bestMatch.route;
+  }
+
+  private normalizePolyline(
+    polyline: unknown,
+    stops: Array<{ latitude: number; longitude: number }>,
+  ): Array<[number, number]> {
+    if (Array.isArray(polyline)) {
+      const points = polyline
+        .map((point) => {
+          if (
+            Array.isArray(point) &&
+            point.length >= 2 &&
+            typeof point[0] === 'number' &&
+            typeof point[1] === 'number'
+          ) {
+            return [point[0], point[1]] as [number, number];
+          }
+
+          return null;
+        })
+        .filter((point): point is [number, number] => Boolean(point));
+
+      if (points.length > 0) {
+        return points;
+      }
+    }
+
+    return stops.map((stop) => [stop.latitude, stop.longitude]);
+  }
+
+  private resolveClusterBusId(
+    routeId: string,
+    latitude: number,
+    longitude: number,
+    now: Date,
+  ) {
+    for (const [busId, cluster] of this.activeClusters.entries()) {
+      if (now.getTime() - cluster.lastSeenAt.getTime() > 60000) {
+        this.activeClusters.delete(busId);
+        continue;
+      }
+
+      if (cluster.routeId !== routeId) {
+        continue;
+      }
+
+      const distanceMeters = this.getDistanceMeters(
+        latitude,
+        longitude,
+        cluster.latitude,
+        cluster.longitude,
+      );
+
+      if (distanceMeters <= 120) {
+        this.activeClusters.set(busId, {
+          ...cluster,
+          latitude,
+          longitude,
+          lastSeenAt: now,
+        });
+        return busId;
+      }
+    }
+
+    const busId = `CROWD_BUS_${routeId}_${now.getTime()}`;
+    this.activeClusters.set(busId, {
+      busId,
+      routeId,
+      latitude,
+      longitude,
+      lastSeenAt: now,
+    });
+    return busId;
+  }
+
+  private describeProbability(probabilityScore: number) {
+    if (probabilityScore >= 85) return 'High confidence';
+    if (probabilityScore >= 70) return 'Likely bus';
+    return 'Possible bus';
   }
 }

@@ -6,114 +6,150 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ClusteringService } from './clustering.service';
 import { IUB_ROUTES } from './simulator-data';
 
-/**
- * Automatically simulates Student locations for crowdsourced bus clustering.
- * Also simulates real buses moving along routes with dynamic ETA and stops.
- */
+interface DemoStudent {
+  id: string;
+  name: string;
+  routeId: string;
+  stopIndex: number;
+  status: 'waiting' | 'onboard';
+  latitude: number;
+  longitude: number;
+  speed: number;
+  offsetLat: number;
+  offsetLng: number;
+}
+
+interface SimulatedBusState {
+  busId: string;
+  routeId: string;
+  speed: number;
+  segmentIndex: number;
+  progress: number;
+}
+
+interface RouteStop {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  order: number;
+}
+
 @Injectable()
 export class BusSimulatorService implements OnModuleInit {
   private readonly logger = new Logger(BusSimulatorService.name);
 
-  // Islamia University approx coordinates
-  private baseLat = 29.3783;
-  private baseLng = 71.7738;
+  private demoStudents: DemoStudent[] = [];
 
-  // Active simulated students
-  private activeStudents = [
-    // A group of 4 students moving fast together (will be clustered into a Bus)
+  private readonly directBuses: SimulatedBusState[] = [
     {
-      id: 'STUDENT_001',
-      lat: 29.375,
-      lng: 71.77,
-      speed: 30,
-      angle: 0,
-      group: 'A',
+      busId: 'SIM_BUS_ROUTE_2',
+      routeId: 'ROUTE_2',
+      speed: 34,
+      segmentIndex: 0,
+      progress: 0.15,
     },
     {
-      id: 'STUDENT_002',
-      lat: 29.37501,
-      lng: 71.77001,
-      speed: 30,
-      angle: 0,
-      group: 'A',
+      busId: 'SIM_BUS_ROUTE_3',
+      routeId: 'ROUTE_3',
+      speed: 31,
+      segmentIndex: 1,
+      progress: 0.35,
     },
     {
-      id: 'STUDENT_003',
-      lat: 29.37499,
-      lng: 71.76999,
-      speed: 30,
-      angle: 0,
-      group: 'A',
-    },
-    {
-      id: 'STUDENT_004',
-      lat: 29.375,
-      lng: 71.77002,
-      speed: 30,
-      angle: 0,
-      group: 'A',
-    },
-
-    // Random slow students (walkers / sitters) that shouldn't be clustered into a bus
-    {
-      id: 'STUDENT_005',
-      lat: 29.38,
-      lng: 71.775,
-      speed: 4,
-      angle: 90,
-      group: 'B',
-    },
-    {
-      id: 'STUDENT_006',
-      lat: 29.37,
-      lng: 71.78,
-      speed: 0,
-      angle: 180,
-      group: 'C',
+      busId: 'SIM_BUS_ROUTE_4',
+      routeId: 'ROUTE_4',
+      speed: 29,
+      segmentIndex: 2,
+      progress: 0.55,
     },
   ];
 
-  // Simulated real buses on routes
-  private simulatedBuses = [
-    { busId: 'BUS_001', routeId: 'ROUTE_1', currentStopIndex: 0, speed: 40 },
-    { busId: 'BUS_002', routeId: 'ROUTE_2', currentStopIndex: 0, speed: 35 },
-    { busId: 'BUS_003', routeId: 'ROUTE_3', currentStopIndex: 0, speed: 38 },
-  ];
+  private readonly crowdCarrier: SimulatedBusState = {
+    busId: 'SIM_CROWD_ROUTE_1',
+    routeId: 'ROUTE_1',
+    speed: 32,
+    segmentIndex: 0,
+    progress: 0.2,
+  };
 
   constructor(
     private readonly trackingService: TrackingService,
     private readonly trackingGateway: TrackingGateway,
     private readonly prisma: PrismaService,
-    private readonly clusteringService: ClusteringService,
+    private readonly clusteringService: ClusteringService
   ) {}
 
   async onModuleInit() {
-    this.logger.log('Initializing Real Campus Routes for Simulator...');
+    await this.seedRoutes();
+    this.initializeDemoScenario();
+    this.logger.log('Demo simulator initialized for viva scenario');
+  }
 
+  @Cron(CronExpression.EVERY_5_SECONDS)
+  async simulateMovement() {
+    const routeMap = await this.loadRouteMap();
+
+    if (routeMap.size === 0) {
+      return;
+    }
+
+    const crowdRoute = routeMap.get(this.crowdCarrier.routeId);
+    if (crowdRoute) {
+      const crowdBusPosition = this.advanceBusAlongRoute(
+        this.crowdCarrier,
+        crowdRoute.stops
+      );
+      this.updateDemoStudentsForCrowdBus(routeMap, crowdBusPosition);
+    }
+
+    for (const bus of this.directBuses) {
+      const route = routeMap.get(bus.routeId);
+      if (!route) {
+        continue;
+      }
+
+      const position = this.advanceBusAlongRoute(bus, route.stops);
+      const updateResult = await this.trackingService.processGPSUpdate({
+        busId: bus.busId,
+        routeId: bus.routeId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: bus.speed,
+      });
+
+      this.trackingGateway.server.emit('bus_moved', {
+        ...updateResult,
+        isSimulated: true,
+        simulatedSource: 'direct_bus',
+      });
+    }
+  }
+
+  private async seedRoutes() {
     for (const routeData of IUB_ROUTES) {
-      // 1. Convert stop objects to array of [lat, lng] for the Polyline
-      const polyline = routeData.stops.map((s) => [s.lat, s.lng]);
+      const polyline = routeData.stops.map((stop) => [stop.lat, stop.lng]);
 
-      // 2. Upsert the Route with the Polyline and Color
       await this.prisma.route.upsert({
         where: { id: routeData.id },
         update: {
-          polyline: polyline,
+          name: routeData.name,
           color: routeData.color,
+          polyline,
+          status: 'ACTIVE',
         },
         create: {
           id: routeData.id,
           name: routeData.name,
           color: routeData.color,
-          polyline: polyline,
+          polyline,
           status: 'ACTIVE',
         },
       });
 
-      // 3. Upsert the stops for this route
-      for (let i = 0; i < routeData.stops.length; i++) {
-        const stop = routeData.stops[i];
-        const stopId = `${routeData.id}_STOP_${i}`;
+      for (let index = 0; index < routeData.stops.length; index++) {
+        const stop = routeData.stops[index];
+        const stopId = `${routeData.id}_STOP_${index}`;
 
         await this.prisma.stop.upsert({
           where: { id: stopId },
@@ -121,7 +157,7 @@ export class BusSimulatorService implements OnModuleInit {
             name: stop.name,
             latitude: stop.lat,
             longitude: stop.lng,
-            order: i + 1,
+            order: index + 1,
           },
           create: {
             id: stopId,
@@ -129,144 +165,204 @@ export class BusSimulatorService implements OnModuleInit {
             name: stop.name,
             latitude: stop.lat,
             longitude: stop.lng,
-            order: i + 1,
+            order: index + 1,
           },
         });
       }
     }
   }
 
-  @Cron(CronExpression.EVERY_5_SECONDS)
-  async simulateMovement() {
-    // 1. Simulate individual student movement (for clustering demo)
-    for (const student of this.activeStudents) {
-      if (student.speed > 0) {
-        // Move the student slightly
-        const speedDegrees = student.speed * 0.0001;
-        student.angle += 10;
-        student.lat =
-          this.baseLat +
-          Math.sin((student.angle * Math.PI) / 180) * speedDegrees * 5;
-        student.lng =
-          this.baseLng +
-          Math.cos((student.angle * Math.PI) / 180) * speedDegrees * 5;
+  private initializeDemoScenario() {
+    const route1Stop0 = IUB_ROUTES.find((route) => route.id === 'ROUTE_1')
+      ?.stops[0];
+    const route1Stop4 = IUB_ROUTES.find((route) => route.id === 'ROUTE_1')
+      ?.stops[4];
+    const route3Stop2 = IUB_ROUTES.find((route) => route.id === 'ROUTE_3')
+      ?.stops[2];
+
+    if (!route1Stop0 || !route1Stop4 || !route3Stop2) {
+      this.logger.warn(
+        'Demo scenario could not be initialized because simulator stops are missing'
+      );
+      return;
+    }
+
+    this.demoStudents = [
+      ...this.createOnboardGroup('ROUTE_1', route1Stop0.lat, route1Stop0.lng),
+      ...this.createWaitingGroup(
+        'WAIT_GATE',
+        'ROUTE_1',
+        4,
+        route1Stop4.lat,
+        route1Stop4.lng,
+        4
+      ),
+      ...this.createWaitingGroup(
+        'WAIT_ROUTE_3',
+        'ROUTE_3',
+        2,
+        route3Stop2.lat,
+        route3Stop2.lng,
+        3
+      ),
+    ];
+  }
+
+  private createOnboardGroup(
+    routeId: string,
+    latitude: number,
+    longitude: number
+  ) {
+    return Array.from({ length: 5 }, (_, index) => ({
+      id: `ONBOARD_${index + 1}`,
+      name: `Passenger ${index + 1}`,
+      routeId,
+      stopIndex: 0,
+      status: 'onboard' as const,
+      latitude,
+      longitude,
+      speed: this.crowdCarrier.speed,
+      offsetLat: index * 0.000015,
+      offsetLng: index * 0.00001,
+    }));
+  }
+
+  private createWaitingGroup(
+    prefix: string,
+    routeId: string,
+    stopIndex: number,
+    latitude: number,
+    longitude: number,
+    count: number
+  ) {
+    return Array.from({ length: count }, (_, index) => ({
+      id: `${prefix}_${index + 1}`,
+      name: `${routeId} Rider ${index + 1}`,
+      routeId,
+      stopIndex,
+      status: 'waiting' as const,
+      latitude,
+      longitude,
+      speed: 0,
+      offsetLat: index * 0.00002,
+      offsetLng: index * 0.000015,
+    }));
+  }
+
+  private async loadRouteMap() {
+    const routes = await this.prisma.route.findMany({
+      where: { status: 'ACTIVE' },
+      include: {
+        stops: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    return new Map(routes.map((route) => [route.id, route]));
+  }
+
+  private advanceBusAlongRoute(bus: SimulatedBusState, stops: RouteStop[]) {
+    if (stops.length < 2) {
+      return {
+        latitude: stops[0]?.latitude ?? 29.3783,
+        longitude: stops[0]?.longitude ?? 71.7738,
+        currentStop: stops[0]?.name ?? null,
+        nextStop: null,
+      };
+    }
+
+    bus.progress += 0.22;
+    if (bus.progress >= 1) {
+      bus.progress = 0;
+      bus.segmentIndex = (bus.segmentIndex + 1) % (stops.length - 1);
+    }
+
+    const currentStop = stops[bus.segmentIndex];
+    const nextStop = stops[bus.segmentIndex + 1];
+    const latitude =
+      currentStop.latitude +
+      (nextStop.latitude - currentStop.latitude) * bus.progress;
+    const longitude =
+      currentStop.longitude +
+      (nextStop.longitude - currentStop.longitude) * bus.progress;
+
+    return {
+      latitude,
+      longitude,
+      currentStop: currentStop.name,
+      nextStop: nextStop.name,
+    };
+  }
+
+  private updateDemoStudentsForCrowdBus(
+    routeMap: Map<string, { stops: RouteStop[] }>,
+    crowdBusPosition: {
+      latitude: number;
+      longitude: number;
+      currentStop: string | null;
+      nextStop: string | null;
+    }
+  ) {
+    const currentStopIndex = this.crowdCarrier.segmentIndex;
+
+    for (const student of this.demoStudents) {
+      if (
+        student.routeId === this.crowdCarrier.routeId &&
+        student.status === 'waiting'
+      ) {
+        if (currentStopIndex >= student.stopIndex) {
+          student.status = 'onboard';
+        }
       }
 
-      // Submit position to clustering service
+      if (
+        student.status === 'onboard' &&
+        student.routeId === this.crowdCarrier.routeId
+      ) {
+        student.latitude = crowdBusPosition.latitude + student.offsetLat;
+        student.longitude = crowdBusPosition.longitude + student.offsetLng;
+        student.speed = this.crowdCarrier.speed;
+
+        this.clusteringService.addStudentLocation({
+          userId: student.id,
+          name: student.name,
+          latitude: student.latitude,
+          longitude: student.longitude,
+          speed: student.speed,
+          timestamp: new Date(),
+        });
+        continue;
+      }
+
+      const stop = routeMap.get(student.routeId)?.stops[student.stopIndex];
+      if (!stop) {
+        continue;
+      }
+
+      student.latitude = stop.latitude + student.offsetLat;
+      student.longitude = stop.longitude + student.offsetLng;
+      student.speed = 0;
+
       this.clusteringService.addStudentLocation({
         userId: student.id,
-        latitude: student.lat,
-        longitude: student.lng,
+        name: student.name,
+        latitude: student.latitude,
+        longitude: student.longitude,
         speed: student.speed,
         timestamp: new Date(),
       });
-    }
 
-    // 2. Simulate real buses moving along routes
-    for (const bus of this.simulatedBuses) {
-      await this.simulateBusMovement(bus);
-    }
-  }
-
-  /**
-   * Simulate a bus moving along its route from stop to stop
-   */
-  private async simulateBusMovement(bus: any) {
-    try {
-      // Get route with stops
-      const route = await this.prisma.route.findUnique({
-        where: { id: bus.routeId },
-        include: {
-          stops: {
-            orderBy: { order: 'asc' },
-          },
-        },
-      });
-
-      if (!route || route.stops.length === 0) return;
-
-      const stops = route.stops;
-      // If bus has reached the last stop, keep it there and stop moving
-      if (bus.currentStopIndex >= stops.length - 1) {
-        const lastStop = stops[stops.length - 1];
-        const prevStop = stops[stops.length - 2] || lastStop;
-        const updateResult = await this.trackingService.processGPSUpdate({
-          busId: bus.busId,
-          routeId: bus.routeId,
-          latitude: lastStop.latitude,
-          longitude: lastStop.longitude,
-          speed: 0,
-        });
-        const broadcastPayload = {
-          ...updateResult,
-          isSimulated: true,
-          currentStop: lastStop.name,
-          nextStop: null,
-          prevStop: prevStop.name,
-          speed: 0,
-          eta: 0,
-        };
-        this.trackingGateway.server.emit('bus_moved', broadcastPayload);
-        this.logger.debug(`Bus ${bus.busId} stopped at final stop: ${lastStop.name}`);
-        return;
-      }
-
-      // Move between stops sequentially
-      const currentStop = stops[bus.currentStopIndex];
-      const nextStop = stops[bus.currentStopIndex + 1];
-      const prevStop = bus.currentStopIndex > 0 ? stops[bus.currentStopIndex - 1] : null;
-
-      // Interpolate position between current and next stop (simulate movement)
-      const progress = (Math.floor(Date.now() / 5000) % 10) / 10; // 0-1 over 50 seconds per stop
-
-      const busLatitude =
-        currentStop.latitude +
-        (nextStop.latitude - currentStop.latitude) * progress;
-      const busLongitude =
-        currentStop.longitude +
-        (nextStop.longitude - currentStop.longitude) * progress;
-
-      // Calculate ETA (simple linear estimate)
-      const distance = Math.sqrt(
-        Math.pow(nextStop.latitude - busLatitude, 2) +
-        Math.pow(nextStop.longitude - busLongitude, 2)
-      );
-      // Assume speed in km/h, convert to degrees per second (rough estimate)
-      const speedDegreesPerSec = bus.speed * 0.00001;
-      const eta = speedDegreesPerSec > 0 ? distance / speedDegreesPerSec : 0;
-
-      // Move to next stop when progress completes
-      if (progress > 0.99) {
-        bus.currentStopIndex = bus.currentStopIndex + 1;
-      }
-
-      // Call TrackingService to update bus position with dynamic ETA
-      const updateResult = await this.trackingService.processGPSUpdate({
-        busId: bus.busId,
-        routeId: bus.routeId,
-        latitude: busLatitude,
-        longitude: busLongitude,
-        speed: bus.speed,
-      });
-
-      // Broadcast bus movement with simulator flag and extra info
-      const broadcastPayload = {
-        ...updateResult,
+      this.trackingGateway.server.emit('student_moved', {
+        userId: student.id,
+        name: student.name,
+        latitude: student.latitude,
+        longitude: student.longitude,
+        speed: 0,
+        status: 'waiting',
         isSimulated: true,
-        currentStop: currentStop.name,
-        nextStop: nextStop.name,
-        prevStop: prevStop ? prevStop.name : null,
-        speed: bus.speed,
-        eta: Math.round(eta),
-      };
-
-      this.trackingGateway.server.emit('bus_moved', broadcastPayload);
-
-      this.logger.debug(
-        `Bus ${bus.busId} moving: ${currentStop.name} → ${nextStop.name} (Progress: ${(progress * 100).toFixed(0)}%, ETA: ${Math.round(eta)}s)`
-      );
-    } catch (error) {
-      this.logger.error(`Error simulating bus ${bus.busId}:`, error);
+        timestamp: new Date().toISOString(),
+      });
     }
   }
 }
