@@ -9,6 +9,8 @@ Thumbs.db
 .idea/
 .agent
 .claude
+.planning/
+
 ################################
 # Environment Variables
 ################################
