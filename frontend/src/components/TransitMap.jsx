@@ -7,7 +7,6 @@ import {
   Polyline,
   TileLayer,
   useMap,
-  useMapEvents,
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -54,18 +53,7 @@ function createUserIcon(label = 'You', color = '#22C55E') {
   });
 }
 
-function createSearchIcon() {
-  return L.divIcon({
-    className: 'transit-icon-wrapper',
-    html: `
-      <div class="transit-search-icon">
-        <span>◎</span>
-      </div>
-    `,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-  });
-}
+
 
 function ResizeMap() {
   const map = useMap();
@@ -81,101 +69,61 @@ function ResizeMap() {
   return null;
 }
 
-function ClickCapture({ onMapClick }) {
-  useMapEvents({
-    click(event) {
-      if (onMapClick) {
-        onMapClick(event.latlng);
-      }
-    },
-  });
-
-  return null;
-}
-
 export default function TransitMap({
   routes = [],
   buses = [],
   students = [],
-  userLocation = null,
   center = DEFAULT_CENTER,
   zoom = 14,
-  selectedPoint = null,
-  searchResults = [],
-  highlightedSearchResultId = '',
-  onSearchResultSelect,
-  onMapClick,
-  showStops = true,
-  showRoutes = true,
   className = '',
 }) {
   return (
     <div className={`transit-map-shell ${className}`.trim()}>
       <MapContainer center={center} zoom={zoom} className="transit-map">
         <ResizeMap />
-        <ClickCapture onMapClick={onMapClick} />
         <TileLayer
           attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
-
-        {showRoutes &&
-          routes.map((route) => (
-            <div key={route.id}>
-              {Array.isArray(route.polyline) && route.polyline.length > 0 && (
-                <Polyline
-                  positions={route.polyline}
-                  pathOptions={{
-                    color: route.color || '#3B82F6',
-                    weight: 4,
-                    opacity: 0.85,
-                  }}
-                />
-              )}
-
-              {showStops &&
-                (route.stops || []).map((stop) => (
-                  <Marker
-                    key={stop.id}
-                    position={[stop.latitude, stop.longitude]}
-                    icon={createStopIcon(route.color)}
-                  >
-                    <Popup>
-                      <strong>{stop.name}</strong>
-                      <div>{route.name}</div>
-                      <div>Order #{stop.order}</div>
-                      {stop.crowdLevel && <div>Crowd: {stop.crowdLevel}</div>}
-                    </Popup>
-                  </Marker>
-                ))}
-            </div>
-          ))}
-
+        {/* Draw routes as colored polylines and stops */}
+        {routes.map((route) => (
+          <div key={route.id}>
+            {Array.isArray(route.polyline) && route.polyline.length > 0 && (
+              <Polyline
+                positions={route.polyline}
+                pathOptions={{ color: route.color, weight: 4, opacity: 0.85 }}
+              />
+            )}
+            {(route.stops || []).map((stop) => (
+              <Marker
+                key={stop.id}
+                position={[stop.latitude, stop.longitude]}
+                icon={createStopIcon(route.color)}
+              >
+                <Popup>
+                  <strong>{stop.name}</strong>
+                  <div>{route.name}</div>
+                  <div>Order #{stop.order}</div>
+                  {stop.crowdLevel && <div>Crowd: {stop.crowdLevel}</div>}
+                </Popup>
+              </Marker>
+            ))}
+          </div>
+        ))}
+        {/* Show buses, visually distinguish simulated */}
         {buses.map((bus) => (
-          <Marker key={bus.id || bus.busId} position={[bus.latitude, bus.longitude]} icon={busIcon}>
+          <Marker
+            key={bus.id || bus.busId}
+            position={[bus.latitude, bus.longitude]}
+            icon={bus.simulated ? createUserIcon('Sim', '#F59E42') : busIcon}
+          >
             <Popup>
               <strong>{bus.plateNumber || bus.busId || bus.id}</strong>
-              <div>{bus.routeName || 'Route unavailable'}</div>
-              <div>
-                Speed:{' '}
-                {typeof bus.speed === 'number' ? `${Number(bus.speed).toFixed(1)} km/h` : 'Unknown'}
-              </div>
-              {bus.probabilityScore && <div>Confidence: {bus.probabilityScore}%</div>}
-              {bus.currentStop && <div>Current stop: {bus.currentStop}</div>}
-              {bus.nextStop && <div>Next stop: {bus.nextStop}</div>}
-              {typeof bus.nextStopEtaMinutes === 'number' && (
-                <div>ETA to next stop: {bus.nextStopEtaMinutes} min</div>
-              )}
-              {bus.nearestStop && (
-                <div>
-                  Nearest stop: {bus.nearestStop}
-                  {bus.nearestStopDistanceKm ? ` (${bus.nearestStopDistanceKm} km)` : ''}
-                </div>
-              )}
+              <div>Lat: {bus.latitude.toFixed(5)}, Lng: {bus.longitude.toFixed(5)}</div>
+              {bus.simulated && <div style={{ color: '#F59E42' }}>Simulated</div>}
               {bus.lastUpdate && (
                 <div>
-                  Updated:{' '}
-                  {new Date(bus.lastUpdate).toLocaleTimeString([], {
+                  Updated: {new Date(bus.lastUpdate).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
@@ -184,12 +132,12 @@ export default function TransitMap({
             </Popup>
           </Marker>
         ))}
-
+        {/* Show student locations */}
         {students.map((student) => (
           <Marker
             key={student.userId}
             position={[student.latitude, student.longitude]}
-            icon={createUserIcon(student.name || 'S', '#F59E0B')}
+            icon={createUserIcon(student.name || 'S', '#10B981')}
           >
             <Popup>
               <strong>{student.name || 'Student'}</strong>
@@ -197,55 +145,6 @@ export default function TransitMap({
               <div>
                 {student.latitude.toFixed(5)}, {student.longitude.toFixed(5)}
               </div>
-            </Popup>
-          </Marker>
-        ))}
-
-        {userLocation && (
-          <Marker position={userLocation} icon={createUserIcon('You')}>
-            <Popup>Your location</Popup>
-          </Marker>
-        )}
-
-        {selectedPoint && (
-          <CircleMarker
-            center={[selectedPoint.latitude, selectedPoint.longitude]}
-            radius={10}
-            pathOptions={{
-              color: '#F97316',
-              fillColor: '#FB923C',
-              fillOpacity: 0.8,
-              weight: 2,
-            }}
-          >
-            <Popup>
-              Selected point
-              <div>
-                {selectedPoint.latitude.toFixed(5)}, {selectedPoint.longitude.toFixed(5)}
-              </div>
-            </Popup>
-          </CircleMarker>
-        )}
-
-        {searchResults.map((result) => (
-          <Marker
-            key={result.id}
-            position={[result.latitude, result.longitude]}
-            icon={createSearchIcon()}
-            eventHandlers={
-              onSearchResultSelect
-                ? {
-                    click: () => onSearchResultSelect(result),
-                  }
-                : undefined
-            }
-          >
-            <Popup>
-              <strong>{result.label}</strong>
-              <div>
-                {result.latitude.toFixed(5)}, {result.longitude.toFixed(5)}
-              </div>
-              {highlightedSearchResultId === result.id && <div>Selected search result</div>}
             </Popup>
           </Marker>
         ))}

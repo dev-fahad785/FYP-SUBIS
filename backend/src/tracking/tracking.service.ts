@@ -129,10 +129,13 @@ export class TrackingService {
   }
 
   async getActiveBusSnapshot() {
+    // Only return buses updated in the last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const buses = await this.prisma.bus.findMany({
       where: {
         latitude: { not: null },
         longitude: { not: null },
+        updatedAt: { gte: fiveMinutesAgo },
       },
       include: {
         route: {
