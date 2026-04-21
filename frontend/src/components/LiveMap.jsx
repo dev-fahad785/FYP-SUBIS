@@ -7,6 +7,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 export default function LiveMap({ userName = 'Student' }) {
   const [routes, setRoutes] = useState([]);
   const [buses, setBuses] = useState({});
+  const [students, setStudents] = useState({});
   const [userLocation, setUserLocation] = useState(null);
   const [status, setStatus] = useState('Waiting for location permission...');
   const [mapCenter, setMapCenter] = useState([29.3783, 71.7738]);
@@ -61,6 +62,37 @@ export default function LiveMap({ userName = 'Student' }) {
       }
     });
 
+    socket.on('students_snapshot', (snapshot) => {
+      const waitingStudents = {};
+      for (const student of snapshot) {
+        if (student.userId === userId || student.speed > 10) {
+          continue;
+        }
+        waitingStudents[student.userId] = student;
+      }
+      setStudents(waitingStudents);
+    });
+
+    socket.on('student_moved', (payload) => {
+      if (payload.userId === userId) {
+        return;
+      }
+
+      if (payload.speed > 10 && payload.status !== 'waiting') {
+        setStudents((current) => {
+          const next = { ...current };
+          delete next[payload.userId];
+          return next;
+        });
+        return;
+      }
+
+      setStudents((current) => ({
+        ...current,
+        [payload.userId]: payload,
+      }));
+    });
+
     socket.on('connect_error', () => {
       setStatus('Live bus updates unavailable.');
     });
@@ -105,6 +137,7 @@ export default function LiveMap({ userName = 'Student' }) {
   }, [userId, userName]);
 
   const busList = useMemo(() => Object.values(buses), [buses]);
+  const visibleStudents = useMemo(() => Object.values(students), [students]);
   const filteredBuses = useMemo(
     () => busList.filter((bus) => !selectedRouteId || bus.routeId === selectedRouteId),
     [busList, selectedRouteId]
@@ -146,6 +179,10 @@ export default function LiveMap({ userName = 'Student' }) {
           </label>
 
           <div className="bus-insights-list">
+            <article className="bus-insight-card">
+              <strong>Waiting students</strong>
+              <p>{visibleStudents.length} simulated students currently standing at stops</p>
+            </article>
             {filteredBuses.length === 0 && <div className="panel-empty">No active buses yet.</div>}
             {filteredBuses.map((bus) => (
               <article key={bus.busId} className="bus-insight-card">
@@ -172,6 +209,7 @@ export default function LiveMap({ userName = 'Student' }) {
         <TransitMap
           routes={filteredRoutes}
           buses={filteredBuses}
+          students={visibleStudents}
           userLocation={userLocation}
           center={mapCenter}
         />
