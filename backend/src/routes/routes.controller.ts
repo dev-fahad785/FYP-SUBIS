@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -63,5 +64,19 @@ export class RoutesController {
     },
   ) {
     return this.routesService.updateStop(stopId, body);
+  }
+
+  @Delete(':routeId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async deleteRoute(@Param('routeId') routeId: string) {
+    return this.routesService.deleteRoute(routeId);
+  }
+
+  @Delete('stops/:stopId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async deleteStop(@Param('stopId') stopId: string) {
+    return this.routesService.deleteStop(stopId);
   }
 }
