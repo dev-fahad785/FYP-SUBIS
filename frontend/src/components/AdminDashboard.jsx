@@ -465,7 +465,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
           </div>
 
           <div className="dashboard-grid two-column">
-            <div className="panel large">
+            <div className="panel large flex flex-col">
               <div className="panel-header">
                 <div>
                   <h3>Operations map</h3>
@@ -479,7 +479,9 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               {loadingState.overview ? (
                 <div className="panel-empty">Loading live fleet overview...</div>
               ) : (
-                <TransitMap routes={overviewMapRoutes} buses={overviewMapBuses} />
+                <div className="flex-1 w-full min-h-[450px] rounded-lg overflow-hidden">
+                  <TransitMap routes={overviewMapRoutes} buses={overviewMapBuses} />
+                </div>
               )}
             </div>
 
@@ -739,7 +741,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               </div>
             </div>
 
-            <div className="panel stack">
+            <div className="panel stack flex flex-col">
               <div className="panel-header">
                 <div>
                   <h3>Route map editor</h3>
@@ -747,15 +749,17 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                 </div>
               </div>
 
-              <TransitMap
-                routes={selectedRouteMap}
-                buses={[]}
-                selectedPoint={selectedPoint}
-                searchResults={locationResults}
-                highlightedSearchResultId={selectedLocationResultId}
-                onSearchResultSelect={applyLocationResult}
-                onMapClick={handleMapSelect}
-              />
+              <div className="flex-1 w-full min-h-[450px] rounded-lg overflow-hidden">
+                <TransitMap
+                  routes={selectedRouteMap}
+                  buses={[]}
+                  selectedPoint={selectedPoint}
+                  searchResults={locationResults}
+                  highlightedSearchResultId={selectedLocationResultId}
+                  onSearchResultSelect={applyLocationResult}
+                  onMapClick={handleMapSelect}
+                />
+              </div>
 
               <div className="stop-table">
                 {(selectedRoute?.stops || []).map((stop) => (
