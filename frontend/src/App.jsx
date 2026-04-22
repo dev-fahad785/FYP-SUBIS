@@ -5,9 +5,24 @@ import './App.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 const TOKEN_KEY = 'auth_token';
+const USER_ID_KEY = 'auth_user_id';
 const EMAIL_KEY = 'auth_email';
 const NAME_KEY = 'auth_name';
 const ROLE_KEY = 'auth_role';
+
+function decodeJwtPayload(token) {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const decoded = window.atob(padded);
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+}
 
 function App() {
   const [step, setStep] = useState('register');
@@ -15,6 +30,7 @@ function App() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [authToken, setAuthToken] = useState('');
+  const [currentUserId, setCurrentUserId] = useState('');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [currentUserName, setCurrentUserName] = useState('');
   const [currentUserRole, setCurrentUserRole] = useState('');
@@ -38,12 +54,15 @@ function App() {
 
   useEffect(() => {
     const storedToken = localStorage.getItem(TOKEN_KEY);
+    const storedUserId = localStorage.getItem(USER_ID_KEY);
     const storedEmail = localStorage.getItem(EMAIL_KEY);
     const storedName = localStorage.getItem(NAME_KEY);
     const storedRole = localStorage.getItem(ROLE_KEY);
 
     if (storedToken) {
+      const decoded = decodeJwtPayload(storedToken);
       setAuthToken(storedToken);
+      setCurrentUserId(storedUserId || decoded?.sub || '');
       setCurrentUserEmail(storedEmail || '');
       setCurrentUserName(storedName || '');
       setCurrentUserRole(storedRole || '');
@@ -157,13 +176,16 @@ function App() {
       const nextName = data.name || currentUserName || loginForm.email.split('@')[0];
       const nextEmail = data.email || loginForm.email;
       const nextRole = data.role || 'STUDENT';
+      const nextUserId = data.userId || decodeJwtPayload(data.access_token)?.sub || '';
 
       setAuthToken(data.access_token);
+      setCurrentUserId(nextUserId);
       setCurrentUserEmail(nextEmail);
       setCurrentUserName(nextName);
       setCurrentUserRole(nextRole);
 
       localStorage.setItem(TOKEN_KEY, data.access_token);
+      localStorage.setItem(USER_ID_KEY, nextUserId);
       localStorage.setItem(EMAIL_KEY, nextEmail);
       localStorage.setItem(NAME_KEY, nextName);
       localStorage.setItem(ROLE_KEY, nextRole);
@@ -179,10 +201,12 @@ function App() {
 
   const handleLogout = () => {
     setAuthToken('');
+    setCurrentUserId('');
     setCurrentUserEmail('');
     setCurrentUserName('');
     setCurrentUserRole('');
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_ID_KEY);
     localStorage.removeItem(EMAIL_KEY);
     localStorage.removeItem(NAME_KEY);
     localStorage.removeItem(ROLE_KEY);
@@ -392,7 +416,10 @@ function App() {
               </div>
 
               <div className="map-container">
-                <LiveMap userName={currentUserName || currentUserEmail.split('@')[0] || 'Student'} />
+                <LiveMap
+                  userId={currentUserId}
+                  userName={currentUserName || currentUserEmail.split('@')[0] || 'Student'}
+                />
               </div>
             </div>
           ))}

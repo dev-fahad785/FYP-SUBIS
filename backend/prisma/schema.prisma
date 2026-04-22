@@ -1,7 +1,3 @@
-// ======================
-// GENERATOR & DATASOURCE
-// ======================
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,10 +7,82 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            String      @id @default(uuid())
+  name          String
+  email         String      @unique
+  passwordHash  String
+  role          Role        @default(STUDENT)
+  locationOptIn Boolean     @default(false)
+  isVerified    Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  otp           String?
+  otpExpiry     DateTime?
+  telemetry     Telemetry[]
+}
 
-// ======================
-// ENUMS
-// ======================
+model Route {
+  id        String      @id @default(uuid())
+  name      String
+  status    RouteStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  color     String?     @default("#3B82F6")
+  polyline  Json?
+  buses     Bus[]
+  stops     Stop[]
+}
+
+model Stop {
+  id         String     @id @default(uuid())
+  name       String
+  latitude   Float
+  longitude  Float
+  order      Int
+  crowdLevel CrowdLevel @default(LOW)
+  routeId    String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  route      Route      @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@unique([routeId, order])
+  @@index([routeId])
+}
+
+model Bus {
+  id          String      @id @default(uuid())
+  plateNumber String      @unique
+  latitude    Float?
+  longitude   Float?
+  speed       Float?
+  lastUpdate  DateTime?
+  routeId     String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  crowdLevel  CrowdLevel  @default(LOW)
+  route       Route       @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  telemetry   Telemetry[]
+
+  @@index([routeId])
+}
+
+model Telemetry {
+  id        String   @id @default(uuid())
+  latitude  Float
+  longitude Float
+  speed     Float?
+  timestamp DateTime @default(now())
+  userId    String?
+  busId     String?
+  createdAt DateTime @default(now())
+  bus       Bus?     @relation(fields: [busId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([busId])
+  @@index([timestamp])
+}
 
 enum Role {
   STUDENT
@@ -30,119 +98,4 @@ enum CrowdLevel {
   LOW
   MODERATE
   HIGH
-}
-
-
-// ======================
-// USER MODEL
-// ======================
-
-model User {
-  id             String      @id @default(uuid())
-  name           String
-  email          String      @unique
-  passwordHash   String
-  role           Role        @default(STUDENT)
-  locationOptIn  Boolean     @default(false)
-  isVerified     Boolean     @default(false)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  otp            String?
-  otpExpiry      DateTime?
-  telemetry      Telemetry[]
-}
-
-
-
-// ======================
-// ROUTE MODEL
-// ======================
-
-model Route {
-  id        String        @id @default(uuid())
-  name      String
-  color     String?       @default("#3B82F6")
-  polyline  Json?         // Stores array of [lat, lng] coordinates
-  status    RouteStatus   @default(ACTIVE)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-
-  stops     Stop[]
-  buses     Bus[]
-}
-
-
-
-// ======================
-// STOP MODEL
-// ======================
-
-model Stop {
-  id          String     @id @default(uuid())
-  name        String
-  latitude    Float
-  longitude   Float
-  order       Int
-  crowdLevel  CrowdLevel @default(LOW)
-
-  routeId     String
-  route       Route      @relation(fields: [routeId], references: [id], onDelete: Cascade)
-
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  @@index([routeId])
-  @@unique([routeId,order])
-}
-
-
-
-// ======================
-// BUS MODEL
-// ======================
-
-model Bus {
-  id           String     @id @default(uuid())
-  plateNumber  String     @unique
-  latitude     Float?
-  longitude    Float?
-  speed        Float?
-  crowdLevel   CrowdLevel @default(LOW)
-  lastUpdate   DateTime?
-
-  routeId      String
-  route        Route      @relation(fields: [routeId], references: [id], onDelete: Cascade)
-
-  telemetry    Telemetry[]
-
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  @@index([routeId])
-}
-
-
-
-// ======================
-// TELEMETRY MODEL
-// ======================
-
-model Telemetry {
-  id         String    @id @default(uuid())
-  latitude   Float
-  longitude  Float
-  speed      Float?
-  timestamp  DateTime  @default(now())
-
-  userId     String?
-  busId      String?
-
-  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bus        Bus?      @relation(fields: [busId], references: [id], onDelete: Cascade)
-
-  createdAt  DateTime  @default(now())
-
-  @@index([userId])
-  @@index([busId])
-  @@index([timestamp])
 }

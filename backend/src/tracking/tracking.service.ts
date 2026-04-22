@@ -125,14 +125,19 @@ export class TrackingService {
       nextStopEtaMinutes: stopContext.nextStopEtaMinutes,
       nearestStop: stopContext.nearestStop,
       nearestStopDistanceKm: stopContext.nearestStopDistanceKm,
+      isSimulated: bus.id.startsWith('SIM_'),
+      isCrowdsourced: bus.id.startsWith('CROWD_BUS_'),
     };
   }
 
   async getActiveBusSnapshot() {
+    // Only return buses updated in the last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const buses = await this.prisma.bus.findMany({
       where: {
         latitude: { not: null },
         longitude: { not: null },
+        updatedAt: { gte: fiveMinutesAgo },
       },
       include: {
         route: {
@@ -145,6 +150,18 @@ export class TrackingService {
       },
       orderBy: { updatedAt: 'desc' },
     });
+
+    // Log breakdown of buses being sent
+    const simulated = buses.filter(b => b.id.startsWith('SIM_'));
+    const crowdsourced = buses.filter(b => b.id.startsWith('CROWD_BUS_'));
+    const other = buses.filter(b => !b.id.startsWith('SIM_') && !b.id.startsWith('CROWD_BUS_'));
+
+    this.logger.log(
+      `[BUS_SNAPSHOT] Total: ${buses.length} | Simulated: ${simulated.length} | Crowdsourced: ${crowdsourced.length} | Other: ${other.length}`,
+    );
+    this.logger.debug(
+      `[BUS_IDS] ${buses.map(b => b.id).join(', ')}`,
+    );
 
     return buses.map((bus) => {
       const etas = (bus.route?.stops || []).map((stop) => {
@@ -188,6 +205,8 @@ export class TrackingService {
         nextStopEtaMinutes: stopContext.nextStopEtaMinutes,
         nearestStop: stopContext.nearestStop,
         nearestStopDistanceKm: stopContext.nearestStopDistanceKm,
+        isSimulated: bus.id.startsWith('SIM_'),
+        isCrowdsourced: bus.id.startsWith('CROWD_BUS_'),
       };
     });
   }

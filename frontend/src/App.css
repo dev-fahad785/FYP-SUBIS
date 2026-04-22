@@ -619,3 +619,50 @@ input::placeholder {
     align-items: stretch;
   }
 }
+
+/* Pixel-perfect bus map styles */
+.transit-map-shell {
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #0b1020 60%, #0a0f1b 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transit-map {
+  width: 90vw;
+  height: 90vh;
+  min-width: 320px;
+  min-height: 320px;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+  border: 2px solid #23263a;
+  overflow: hidden;
+}
+
+.transit-bus-icon {
+  background: #2563eb;
+  color: #fff;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 16px;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.18);
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  background: #181c2a !important;
+  color: #e9ecf5 !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25) !important;
+}
+
+.leaflet-popup-tip {
+  background: #181c2a !important;
+}
