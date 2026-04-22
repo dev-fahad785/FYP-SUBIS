@@ -479,7 +479,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               {loadingState.overview ? (
                 <div className="panel-empty">Loading live fleet overview...</div>
               ) : (
-                <div className="flex-1 w-full min-h-[450px] rounded-lg overflow-hidden">
+                <div className="map-frame dashboard-map-frame">
                   <TransitMap routes={overviewMapRoutes} buses={overviewMapBuses} />
                 </div>
               )}
@@ -741,7 +741,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               </div>
             </div>
 
-            <div className="panel stack flex flex-col">
+            <div className="panel stack">
               <div className="panel-header">
                 <div>
                   <h3>Route map editor</h3>
@@ -749,7 +749,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                 </div>
               </div>
 
-              <div className="flex-1 w-full min-h-[450px] rounded-lg overflow-hidden">
+              <div className="map-frame dashboard-map-frame">
                 <TransitMap
                   routes={selectedRouteMap}
                   buses={[]}

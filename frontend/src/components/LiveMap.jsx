@@ -198,6 +198,10 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
           <h3>Live bus map</h3>
           <p>{status}</p>
         </div>
+        <div className={`data-mode-indicator ${mode === 'simulated' ? 'simulated' : 'realtime'}`}>
+          <span className="mode-indicator-dot" />
+          {mode === 'simulated' ? 'Simulation mode' : 'Real-time mode'}
+        </div>
         <div className="metric-card compact">
           <span className="metric-label">Buses shown</span>
           <strong>{visibleBuses.length}</strong>
@@ -206,28 +210,38 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
           <span className="metric-label">Students on map</span>
           <strong>{visibleStudents.length}</strong>
         </div>
-        <div style={{marginLeft: 'auto'}}>
+        <div className="mode-toggle" style={{ marginLeft: 'auto' }}>
           <button
-            className={mode === 'simulated' ? 'active' : ''}
+            className={`mode-toggle-btn ${mode === 'simulated' ? 'active' : ''}`}
+            type="button"
             onClick={() => setMode('simulated')}
-            style={{marginRight: 8}}
+            aria-pressed={mode === 'simulated'}
           >
             Simulated
           </button>
           <button
-            className={mode === 'real' ? 'active' : ''}
+            className={`mode-toggle-btn ${mode === 'real' ? 'active' : ''}`}
+            type="button"
             onClick={() => setMode('real')}
+            aria-pressed={mode === 'real'}
           >
             Real Time
           </button>
         </div>
       </div>
-      <div className="student-layout-grid">
-        <TransitMap
-          routes={routesWithColor}
-          buses={visibleBuses}
-          students={visibleStudents}
-        />
+      <div className="student-layout-grid live-map-grid">
+        <div className={`map-frame dashboard-map-frame ${mode === 'simulated' ? 'simulation-active' : ''}`}>
+          {mode === 'simulated' && (
+            <div className="simulation-banner" role="status" aria-live="polite">
+              Simulation feed active: buses and students shown here are generated sample data.
+            </div>
+          )}
+          <TransitMap
+            routes={routesWithColor}
+            buses={visibleBuses}
+            students={visibleStudents}
+          />
+        </div>
       </div>
     </div>
   );
