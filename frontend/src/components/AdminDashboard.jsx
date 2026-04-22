@@ -10,6 +10,26 @@ const tabLabels = {
   analytics: 'Analytics',
 };
 
+async function parseJsonResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+
+  if (!contentType.includes('application/json')) {
+    return null;
+  }
+
+  const text = await response.text();
+
+  if (!text.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 function BarChart({ points = [] }) {
   const maxValue = Math.max(...points.map((point) => point.total), 1);
 
@@ -333,7 +353,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
         method: 'DELETE',
         headers: authHeaders,
       });
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
 
       if (!response.ok) {
         throw new Error(data.message || 'Failed to delete route');
@@ -381,7 +401,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
         method: 'DELETE',
         headers: authHeaders,
       });
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
 
       if (!response.ok) {
         throw new Error(data.message || 'Failed to delete stop');
