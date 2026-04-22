@@ -330,6 +330,7 @@ export class BusSimulatorService implements OnModuleInit {
           latitude: student.latitude,
           longitude: student.longitude,
           speed: student.speed,
+          isSimulated: true,
           timestamp: new Date(),
         });
         continue;
@@ -350,6 +351,7 @@ export class BusSimulatorService implements OnModuleInit {
         latitude: student.latitude,
         longitude: student.longitude,
         speed: student.speed,
+        isSimulated: true,
         timestamp: new Date(),
       });
 

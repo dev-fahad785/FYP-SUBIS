@@ -11,6 +11,7 @@ interface StudentLocation {
   longitude: number;
   speed: number;
   timestamp: Date;
+  isSimulated?: boolean;
 }
 
 interface RouteCandidate {
@@ -32,6 +33,34 @@ interface ActiveClusterState {
   latitude: number;
   longitude: number;
   lastSeenAt: Date;
+  speed: number;
+  memberUserIds: string[];
+  payload: ClusterBusPayload;
+}
+
+interface ClusterBusPayload {
+  busId: string;
+  id: string;
+  plateNumber: string;
+  routeId: string;
+  routeName: string;
+  latitude: number;
+  longitude: number;
+  speed: number;
+  crowdLevel: string;
+  lastUpdate: Date;
+  isSimulated: boolean;
+  isCrowdsourced: boolean;
+  studentsInCluster: number;
+  probabilityScore: number;
+  probabilityLabel: string;
+  clusterRadiusMeters: number;
+  etas: unknown[];
+  currentStop: null;
+  nextStop: null;
+  nextStopEtaMinutes: null;
+  nearestStop: null;
+  nearestStopDistanceKm: null;
 }
 
 @Injectable()
@@ -40,6 +69,7 @@ export class ClusteringService {
 
   // In-memory store of the latest location for each student
   private activeStudents: Map<string, StudentLocation> = new Map();
+  // In-memory store of active clusters (buses created from clustering)
   private activeClusters: Map<string, ActiveClusterState> = new Map();
 
   constructor(
@@ -73,27 +103,22 @@ export class ClusteringService {
   }
 
   /**
-   * Helper function to calculate distance in meters between two coordinates.
-   * Uses a basic Haversine formula.
+   * Returns all active in-memory clusters (crowdsourced buses)
    */
-  private getDistanceMeters(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
-    const R = 6371e3; // Earth radius in meters
-    const rad = Math.PI / 180;
-    const dLat = (lat2 - lat1) * rad;
-    const dLon = (lon2 - lon1) * rad;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * rad) *
-        Math.cos(lat2 * rad) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+  public getActiveClusters() {
+    const now = new Date();
+    const CLUSTER_TIMEOUT_MS = 300000; // 5 minutes
+    const activeClusters: ClusterBusPayload[] = [];
+
+    for (const [busId, cluster] of this.activeClusters.entries()) {
+      if (now.getTime() - cluster.lastSeenAt.getTime() > CLUSTER_TIMEOUT_MS) {
+        this.activeClusters.delete(busId);
+        this.logger.debug(`[MEMORY_CLEANUP] Expired cluster ${busId} removed from memory`);
+        continue;
+      }
+      activeClusters.push(cluster.payload);
+    }
+    return activeClusters;
   }
 
   /**
@@ -107,11 +132,11 @@ export class ClusteringService {
     // 1. Filter out stale data (older than 30 seconds) and slow speeds
     for (const [userId, loc] of this.activeStudents.entries()) {
       if (now.getTime() - loc.timestamp.getTime() > 30000) {
-        this.activeStudents.delete(userId); // Remove inactive students
+        this.activeStudents.delete(userId);
         continue;
       }
       // Ignore walkers and stationary users.
-      if (loc.speed > 12) {
+      if (!loc.isSimulated && loc.speed > 15) {
         activeLocations.push(loc);
       }
     }
@@ -167,7 +192,7 @@ export class ClusteringService {
       clusters.push(currentCluster);
     }
 
-    // 3. Process the found clusters
+    // 3. Process the found clusters - KEEP ONLY IN MEMORY, DON'T SAVE TO DB
     for (const cluster of clusters) {
       if (cluster.length >= MIN_STUDENTS_FOR_BUS) {
         // Calculate centroid
@@ -183,11 +208,15 @@ export class ClusteringService {
           continue;
         }
 
+        const memberUserIds = cluster.map((student) => student.userId);
+
         const dynamicBusId = this.resolveClusterBusId(
           matchedRoute.id,
           avgLat,
           avgLng,
           now,
+          memberUserIds,
+          avgSpeed,
         );
 
         const probabilityScore = Math.min(
@@ -195,31 +224,59 @@ export class ClusteringService {
           Math.max(60, Math.round(60 + (cluster.length - MIN_STUDENTS_FOR_BUS) * 8)),
         );
 
-        this.logger.debug(
-          `Found Bus Cluster! ${cluster.length} students. Bus: ${dynamicBusId}. Route: ${matchedRoute.id}. Prob: ${probabilityScore}%`,
+        this.logger.log(
+          `[CLUSTER_DETECTED] Bus: ${dynamicBusId} | Route: ${matchedRoute.id} | Students: ${cluster.length} | Probability: ${probabilityScore}% | Speed: ${avgSpeed.toFixed(1)} km/h`,
         );
 
-        const updateResult = await this.trackingService.processGPSUpdate({
+        // Create bus object WITHOUT saving to database
+        const busPayload: ClusterBusPayload = {
           busId: dynamicBusId,
+          id: dynamicBusId,
+          plateNumber: `CLUSTER-${cluster.length}`,
           routeId: matchedRoute.id,
+          routeName: matchedRoute.name,
           latitude: avgLat,
           longitude: avgLng,
           speed: avgSpeed,
-        });
-
-        // Add our custom probability data to the broadcast payload
-        const broadcastPayload = {
-          ...updateResult,
+          crowdLevel: 'MEDIUM',
+          lastUpdate: now,
+          isSimulated: false,
           isCrowdsourced: true,
           studentsInCluster: cluster.length,
           probabilityScore,
           probabilityLabel: this.describeProbability(probabilityScore),
           clusterRadiusMeters: CLUSTER_RADIUS_METERS,
+          etas: [], // Could calculate if needed
+          currentStop: null,
+          nextStop: null,
+          nextStopEtaMinutes: null,
+          nearestStop: null,
+          nearestStopDistanceKm: null,
         };
 
-        this.trackingGateway.server.emit('bus_moved', broadcastPayload);
+        this.activeClusters.set(dynamicBusId, {
+          busId: dynamicBusId,
+          routeId: matchedRoute.id,
+          latitude: avgLat,
+          longitude: avgLng,
+          lastSeenAt: now,
+          speed: avgSpeed,
+          memberUserIds,
+          payload: busPayload,
+        });
+
+        // Emit ONLY via WebSocket, DON'T save to database
+        this.trackingGateway.server.emit('bus_moved', busPayload);
+
+        // Remove students from active tracking and notify clients that the
+        // riders are now represented by the detected bus instead of markers.
         for (const student of cluster) {
           this.activeStudents.delete(student.userId);
+          this.trackingGateway.server.emit('student_removed', {
+            userId: student.userId,
+            busId: dynamicBusId,
+            routeId: matchedRoute.id,
+          });
         }
       }
     }
@@ -294,7 +351,6 @@ export class ClusteringService {
           ) {
             return [point[0], point[1]] as [number, number];
           }
-
           return null;
         })
         .filter((point): point is [number, number] => Boolean(point));
@@ -312,10 +368,18 @@ export class ClusteringService {
     latitude: number,
     longitude: number,
     now: Date,
+    memberUserIds: string[],
+    speed: number,
   ) {
+    const CLUSTER_TIMEOUT_MS = 300000; // 5 minutes
+    const BASE_REUSE_DISTANCE_METERS = 250;
+    const MIN_MEMBER_OVERLAP = 3;
+
+    // Try to reuse existing cluster within distance threshold
     for (const [busId, cluster] of this.activeClusters.entries()) {
-      if (now.getTime() - cluster.lastSeenAt.getTime() > 60000) {
+      if (now.getTime() - cluster.lastSeenAt.getTime() > CLUSTER_TIMEOUT_MS) {
         this.activeClusters.delete(busId);
+        this.logger.debug(`Cluster ${busId} expired and removed from memory`);
         continue;
       }
 
@@ -330,26 +394,52 @@ export class ClusteringService {
         cluster.longitude,
       );
 
-      if (distanceMeters <= 120) {
-        this.activeClusters.set(busId, {
-          ...cluster,
-          latitude,
-          longitude,
-          lastSeenAt: now,
-        });
+      const overlapCount = memberUserIds.filter((userId) =>
+        cluster.memberUserIds.includes(userId),
+      ).length;
+      const elapsedSeconds = Math.max(
+        1,
+        (now.getTime() - cluster.lastSeenAt.getTime()) / 1000,
+      );
+      const speedMetersPerSecond = Math.max(speed, cluster.speed, 15) / 3.6;
+      const dynamicReuseDistance =
+        BASE_REUSE_DISTANCE_METERS + speedMetersPerSecond * elapsedSeconds * 2;
+
+      if (
+        overlapCount >= MIN_MEMBER_OVERLAP ||
+        distanceMeters <= dynamicReuseDistance
+      ) {
+        this.logger.debug(
+          `[CLUSTER_REUSED] Bus ${busId} for cluster ${distanceMeters.toFixed(0)}m away with ${overlapCount} shared riders`,
+        );
         return busId;
       }
     }
 
+    // Create new cluster ID (kept only in memory)
     const busId = `CROWD_BUS_${routeId}_${now.getTime()}`;
-    this.activeClusters.set(busId, {
-      busId,
-      routeId,
-      latitude,
-      longitude,
-      lastSeenAt: now,
-    });
+    this.logger.debug(`[CLUSTER_CREATED] New in-memory cluster ${busId}`);
     return busId;
+  }
+
+  private getDistanceMeters(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
+    const R = 6371e3;
+    const rad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * rad;
+    const dLon = (lon2 - lon1) * rad;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * rad) *
+        Math.cos(lat2 * rad) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
 
   private describeProbability(probabilityScore: number) {
