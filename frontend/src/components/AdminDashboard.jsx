@@ -310,6 +310,102 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
       setLoadingState((state) => ({ ...state, saving: false }));
     }
   };
+  
+  const handleRouteDelete = async () => {
+    if (!selectedRoute?.id) {
+      setFeedback({ type: 'error', message: 'Select a route to delete.' });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete route "${selectedRoute.name}"? This will also remove its stops and linked bus data.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setLoadingState((state) => ({ ...state, saving: true }));
+    setFeedback({ type: '', message: '' });
+
+    try {
+      const response = await fetch(`${API_BASE}/routes/${selectedRoute.id}`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to delete route');
+      }
+
+      setSelectedRouteId('');
+      setStopForm((current) => ({
+        ...current,
+        routeId: '',
+        stopId: '',
+        name: '',
+        latitude: '',
+        longitude: '',
+        order: '',
+      }));
+      setSelectedPoint(null);
+      setLocationResults([]);
+      setSelectedLocationResultId('');
+      setFeedback({ type: 'success', message: 'Route deleted successfully.' });
+      await loadOverview();
+    } catch (error) {
+      setFeedback({ type: 'error', message: error.message });
+    } finally {
+      setLoadingState((state) => ({ ...state, saving: false }));
+    }
+  };
+
+  const handleStopDelete = async () => {
+    if (!stopForm.stopId) {
+      setFeedback({ type: 'error', message: 'Select a stop to delete.' });
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete stop "${stopForm.name}" from this route?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setLoadingState((state) => ({ ...state, saving: true }));
+    setFeedback({ type: '', message: '' });
+
+    try {
+      const response = await fetch(`${API_BASE}/routes/stops/${stopForm.stopId}`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to delete stop');
+      }
+
+      setStopForm((current) => ({
+        ...current,
+        stopId: '',
+        name: '',
+        latitude: '',
+        longitude: '',
+        order: '',
+      }));
+      setSelectedPoint(null);
+      setLocationResults([]);
+      setSelectedLocationResultId('');
+      setFeedback({ type: 'success', message: 'Stop deleted successfully.' });
+      await loadOverview();
+    } catch (error) {
+      setFeedback({ type: 'error', message: error.message });
+    } finally {
+      setLoadingState((state) => ({ ...state, saving: false }));
+    }
+  };
 
   const handleLocationSearch = async (event) => {
     event?.preventDefault?.();
@@ -465,7 +561,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
           </div>
 
           <div className="dashboard-grid two-column">
-            <div className="panel large">
+            <div className="panel large flex flex-col">
               <div className="panel-header">
                 <div>
                   <h3>Operations map</h3>
@@ -479,7 +575,9 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               {loadingState.overview ? (
                 <div className="panel-empty">Loading live fleet overview...</div>
               ) : (
-                <TransitMap routes={overviewMapRoutes} buses={overviewMapBuses} />
+                <div className="map-frame dashboard-map-frame">
+                  <TransitMap routes={overviewMapRoutes} buses={overviewMapBuses} />
+                </div>
               )}
             </div>
 
@@ -593,6 +691,14 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     <h3>{selectedRoute?.name || 'Select a route'}</h3>
                     <p>Click the map to fill latitude and longitude for a stop.</p>
                   </div>
+                  <button
+                    className="ghost danger"
+                    type="button"
+                    onClick={handleRouteDelete}
+                    disabled={loadingState.saving || !selectedRoute?.id}
+                  >
+                    Delete route
+                  </button>
                 </div>
 
                 <form className="form compact-form" onSubmit={handleStopSubmit}>
@@ -731,6 +837,16 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     >
                       Clear form
                     </button>
+                    {stopForm.stopId && (
+                      <button
+                        className="ghost danger"
+                        type="button"
+                        onClick={handleStopDelete}
+                        disabled={loadingState.saving}
+                      >
+                        Delete stop
+                      </button>
+                    )}
                     <button className="primary" type="submit" disabled={loadingState.saving}>
                       {stopForm.stopId ? 'Update stop' : 'Add stop'}
                     </button>
@@ -747,15 +863,17 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                 </div>
               </div>
 
-              <TransitMap
-                routes={selectedRouteMap}
-                buses={[]}
-                selectedPoint={selectedPoint}
-                searchResults={locationResults}
-                highlightedSearchResultId={selectedLocationResultId}
-                onSearchResultSelect={applyLocationResult}
-                onMapClick={handleMapSelect}
-              />
+              <div className="map-frame dashboard-map-frame">
+                <TransitMap
+                  routes={selectedRouteMap}
+                  buses={[]}
+                  selectedPoint={selectedPoint}
+                  searchResults={locationResults}
+                  highlightedSearchResultId={selectedLocationResultId}
+                  onSearchResultSelect={applyLocationResult}
+                  onMapClick={handleMapSelect}
+                />
+              </div>
 
               <div className="stop-table">
                 {(selectedRoute?.stops || []).map((stop) => (

@@ -40,7 +40,7 @@ export class RoutesService {
     });
     if (existingStop) {
       throw new BadRequestException(
-        `Stop with order ${order} already exists for this route`
+        `Stop with order ${order} already exists for this route`,
       );
     }
 
@@ -138,7 +138,7 @@ export class RoutesService {
 
       if (conflictingStop) {
         throw new BadRequestException(
-          `Stop with order ${data.order} already exists for this route`
+          `Stop with order ${data.order} already exists for this route`,
         );
       }
     }
@@ -176,6 +176,34 @@ export class RoutesService {
       include: {
         route: true,
       },
+    });
+  }
+
+  async deleteRoute(routeId: string) {
+    const existingRoute = await this.prisma.route.findUnique({
+      where: { id: routeId },
+    });
+
+    if (!existingRoute) {
+      throw new NotFoundException('Route not found');
+    }
+
+    return this.prisma.route.delete({
+      where: { id: routeId },
+    });
+  }
+
+  async deleteStop(stopId: string) {
+    const existingStop = await this.prisma.stop.findUnique({
+      where: { id: stopId },
+    });
+
+    if (!existingStop) {
+      throw new NotFoundException('Stop not found');
+    }
+
+    return this.prisma.stop.delete({
+      where: { id: stopId },
     });
   }
 }
