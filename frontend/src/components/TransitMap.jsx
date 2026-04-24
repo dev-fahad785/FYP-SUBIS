@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import {
-  CircleMarker,
   MapContainer,
   Marker,
   Popup,
@@ -20,36 +19,44 @@ L.Icon.Default.mergeOptions({
 
 const DEFAULT_CENTER = [29.3783, 71.7738];
 
-const busIcon = L.divIcon({
-  className: 'transit-icon-wrapper',
-  html: `
-    <div class="transit-bus-icon">
-      <span>BUS</span>
-    </div>
-  `,
-  iconSize: [38, 38],
-  iconAnchor: [19, 19],
-});
+function createBusIcon(simulated = false) {
+  return L.divIcon({
+    className: 'transit-icon-wrapper',
+    html: `
+      <div class="transit-bus-marker ${simulated ? 'simulated' : ''}">
+        <div class="transit-bus-ripple"></div>
+        <div class="transit-bus-icon">
+          <span>B</span>
+        </div>
+      </div>
+    `,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+  });
+}
+
+const busIcon = createBusIcon();
+const simulatedBusIcon = createBusIcon(true);
 
 function createStopIcon(color = '#3B82F6') {
   return L.divIcon({
     className: 'transit-icon-wrapper',
-    html: `<div class="transit-stop-icon" style="border-color:${color};"></div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
+    html: `
+      <div class="transit-stop-pin" style="--stop-color:${color};">
+        <span class="transit-stop-pin-core"></span>
+      </div>
+    `,
+    iconSize: [24, 32],
+    iconAnchor: [12, 30],
   });
 }
 
-function createUserIcon(label = 'You', color = '#22C55E') {
+function createStudentDotIcon(color = '#22C55E') {
   return L.divIcon({
     className: 'transit-icon-wrapper',
-    html: `
-      <div class="transit-user-icon" style="--marker-color:${color};">
-        <span>${label.slice(0, 1).toUpperCase()}</span>
-      </div>
-    `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    html: `<div class="transit-student-dot" style="--marker-color:${color};"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
   });
 }
 
@@ -115,7 +122,7 @@ export default function TransitMap({
           <Marker
             key={bus.id || bus.busId}
             position={[bus.latitude, bus.longitude]}
-            icon={bus.simulated ? createUserIcon('Sim', '#F59E42') : busIcon}
+            icon={bus.simulated ? simulatedBusIcon : busIcon}
           >
             <Popup>
               <strong>{bus.plateNumber || bus.busId || bus.id}</strong>
@@ -137,7 +144,7 @@ export default function TransitMap({
           <Marker
             key={student.userId}
             position={[student.latitude, student.longitude]}
-            icon={createUserIcon(student.name || 'S', '#10B981')}
+            icon={createStudentDotIcon('#10B981')}
           >
             <Popup>
               <strong>{student.name || 'Student'}</strong>
