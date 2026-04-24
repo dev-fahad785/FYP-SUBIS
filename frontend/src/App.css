@@ -335,6 +335,60 @@ input::placeholder {
   min-height: 550px;
 }
 
+.bus-details-panel {
+  min-height: 0;
+  gap: 12px;
+}
+
+.bus-details-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.bus-details-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bus-details-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px 12px;
+}
+
+.detail-label {
+  color: #a9b4cb;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bus-badge {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bus-badge.simulated {
+  color: #f8fafc;
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+}
+
+.bus-badge.live {
+  color: #f8fafc;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+}
+
 .panel-header p,
 .alert-card p,
 .route-list-item p,

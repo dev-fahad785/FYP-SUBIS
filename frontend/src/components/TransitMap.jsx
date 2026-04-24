@@ -83,6 +83,7 @@ export default function TransitMap({
   center = DEFAULT_CENTER,
   zoom = 14,
   className = '',
+  onBusSelect,
 }) {
   return (
     <div className={`transit-map-shell ${className}`.trim()}>
@@ -123,10 +124,31 @@ export default function TransitMap({
             key={bus.id || bus.busId}
             position={[bus.latitude, bus.longitude]}
             icon={bus.simulated ? simulatedBusIcon : busIcon}
+            eventHandlers={{
+              click: () => {
+                if (onBusSelect) {
+                  onBusSelect(bus);
+                }
+              },
+            }}
           >
             <Popup>
               <strong>{bus.plateNumber || bus.busId || bus.id}</strong>
               <div>Lat: {bus.latitude.toFixed(5)}, Lng: {bus.longitude.toFixed(5)}</div>
+              {bus.routeName && <div>Route: {bus.routeName}</div>}
+              {bus.currentStop && <div>Current stop: {bus.currentStop}</div>}
+              {bus.nextStop && <div>Next stop: {bus.nextStop}</div>}
+              {typeof bus.nextStopEtaMinutes === 'number' && (
+                <div>ETA to next stop: {bus.nextStopEtaMinutes} min</div>
+              )}
+              {!bus.currentStop && bus.nearestStop && (
+                <div>
+                  Nearest stop: {bus.nearestStop}
+                  {bus.nearestStopDistanceKm
+                    ? ` (${bus.nearestStopDistanceKm} km)`
+                    : ''}
+                </div>
+              )}
               {bus.simulated && <div style={{ color: '#F59E42' }}>Simulated</div>}
               {bus.lastUpdate && (
                 <div>

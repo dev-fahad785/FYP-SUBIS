@@ -13,6 +13,7 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
   const [routes, setRoutes] = useState([]);
   const [buses, setBuses] = useState({});
   const [students, setStudents] = useState({});
+  const [selectedBusId, setSelectedBusId] = useState('');
   const [status, setStatus] = useState('Connecting to live bus updates...');
   const [mode, setMode] = useState('simulated'); // 'simulated' or 'real'
 
@@ -180,6 +181,22 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
   // Select buses based on mode
   const visibleBuses = mode === 'simulated' ? simulatedBuses : realBuses;
   const visibleStudents = mode === 'simulated' ? simulatedStudents : realStudents;
+  const selectedBus = selectedBusId ? buses[selectedBusId] : null;
+
+  useEffect(() => {
+    if (!selectedBusId) {
+      return;
+    }
+
+    if (!visibleBuses.some((bus) => bus.busId === selectedBusId)) {
+      setSelectedBusId('');
+    }
+  }, [selectedBusId, visibleBuses]);
+
+  const handleSelectBus = (bus) => {
+    setSelectedBusId(bus.busId || bus.id || '');
+    console.log(selectedBus)
+  };
 
   // Log when mode changes or buses are displayed
   useMemo(() => {
@@ -240,7 +257,60 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
             routes={routesWithColor}
             buses={visibleBuses}
             students={visibleStudents}
+            onBusSelect={handleSelectBus}
           />
+        </div>
+        <div className="panel bus-details-panel">
+          <div className="panel-header">
+            <h3>Selected Bus</h3>
+            <p>Click any bus marker to view current stop, next stop, and ETA.</p>
+          </div>
+          {!selectedBus && <div className="panel-empty">No bus selected yet.</div>}
+          {selectedBus && (
+            <div className="bus-details-grid">
+              <div className="bus-details-header-row">
+                <strong>{selectedBus.plateNumber || selectedBus.busId || selectedBus.id}</strong>
+                {selectedBus.simulated && <span className="bus-badge simulated">Simulated</span>}
+                {!selectedBus.simulated && <span className="bus-badge live">Real-time</span>}
+              </div>
+              <div className="bus-details-row">
+                <span className="detail-label">Route</span>
+                <strong>{selectedBus.routeName || selectedBus.routeId || 'Unknown route'}</strong>
+              </div>
+              <div className="bus-details-row">
+                <span className="detail-label">Current stop</span>
+                <strong>{selectedBus.currentStop || 'Between stops'}</strong>
+              </div>
+              <div className="bus-details-row">
+                <span className="detail-label">Next stop</span>
+                <strong>{selectedBus.nextStop || selectedBus.nearestStop || 'Not available'}</strong>
+              </div>
+              <div className="bus-details-row">
+                <span className="detail-label">ETA</span>
+                <strong>
+                  {typeof selectedBus.nextStopEtaMinutes === 'number'
+                    ? `${selectedBus.nextStopEtaMinutes} min`
+                    : 'Not available'}
+                </strong>
+              </div>
+              <div className="bus-details-row">
+                <span className="detail-label">Speed</span>
+                <strong>{Math.round(selectedBus.speed || 0)} km/h</strong>
+              </div>
+              <div className="bus-details-row">
+                <span className="detail-label">Last update</span>
+                <strong>
+                  {selectedBus.lastUpdate
+                    ? new Date(selectedBus.lastUpdate).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })
+                    : 'Unknown'}
+                </strong>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
