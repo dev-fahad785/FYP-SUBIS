@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
 import TransitMap from './TransitMap';
 
@@ -88,7 +88,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
     [authToken]
   );
 
-  const loadOverview = async () => {
+  const loadOverview = useCallback(async () => {
     setLoadingState((state) => ({ ...state, overview: true }));
     try {
       const response = await fetch(`${API_BASE}/admin/overview`, {
@@ -111,9 +111,9 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
     } finally {
       setLoadingState((state) => ({ ...state, overview: false }));
     }
-  };
+  }, [authHeaders]);
 
-  const loadAnalytics = async (range = analyticsRange) => {
+  const loadAnalytics = useCallback(async (range = analyticsRange) => {
     setLoadingState((state) => ({ ...state, analytics: true }));
     try {
       const response = await fetch(`${API_BASE}/admin/analytics?range=${range}`, {
@@ -131,9 +131,9 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
     } finally {
       setLoadingState((state) => ({ ...state, analytics: false }));
     }
-  };
+  }, [authHeaders, analyticsRange]);
 
-  const loadLogs = async (page = 1, source = logSource) => {
+  const loadLogs = useCallback(async (page = 1, source = logSource) => {
     setLoadingState((state) => ({ ...state, logs: true }));
     try {
       const query = new URLSearchParams({
@@ -161,13 +161,13 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
     } finally {
       setLoadingState((state) => ({ ...state, logs: false }));
     }
-  };
+  }, [authHeaders, logSource]);
 
   useEffect(() => {
     loadOverview();
     loadAnalytics();
     loadLogs();
-  }, []);
+  }, [loadOverview, loadAnalytics, loadLogs]);
 
   useEffect(() => {
     const socket = io(API_BASE, {
@@ -225,7 +225,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
     [overview, selectedRouteId]
   );
 
-  const routeOptions = overview?.routes || [];
+  const routeOptions = useMemo(() => overview?.routes || [], [overview?.routes]);
   const overviewMapRoutes = overview?.routes || [];
   const overviewMapBuses = overview?.buses || [];
   const selectedRouteMap = selectedRoute ? [selectedRoute] : [];
