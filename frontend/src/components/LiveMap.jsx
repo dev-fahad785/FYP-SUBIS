@@ -16,6 +16,10 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
   const [selectedBusId, setSelectedBusId] = useState('');
   const [status, setStatus] = useState('Connecting to live bus updates...');
   const [mode, setMode] = useState('simulated'); // 'simulated' or 'real'
+  const [searchStartStop, setSearchStartStop] = useState('');
+  const [searchEndStop, setSearchEndStop] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -198,6 +202,39 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
     console.log(selectedBus)
   };
 
+  const handleSearchBuses = async () => {
+    if (!searchStartStop.trim() || !searchEndStop.trim()) {
+      alert('Please enter both start and end stop names');
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/routes/search/buses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startStopName: searchStartStop,
+          endStopName: searchEndStop,
+        }),
+      });
+      const data = await response.json();
+      setSearchResults(data);
+      console.log('Search results:', data);
+    } catch (error) {
+      console.error('Search error:', error);
+      alert('Error searching for buses');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchResults(null);
+    setSearchStartStop('');
+    setSearchEndStop('');
+  };
+
   // Log when mode changes or buses are displayed
   useMemo(() => {
     console.log(
@@ -258,15 +295,91 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
             buses={visibleBuses}
             students={visibleStudents}
             onBusSelect={handleSelectBus}
+            highlightedBusIds={searchResults ? searchResults.buses.map(b => b.id || b.busId) : []}
           />
         </div>
         <div className="panel bus-details-panel">
           <div className="panel-header">
-            <h3>Selected Bus</h3>
-            <p>Click any bus marker to view current stop, next stop, and ETA.</p>
+            <h3>Search for Buses</h3>
           </div>
-          {!selectedBus && <div className="panel-empty">No bus selected yet.</div>}
-          {selectedBus && (
+          <div className="search-form">
+            <div className="form-group">
+              <label htmlFor="start-stop">Start Stop</label>
+              <input
+                id="start-stop"
+                type="text"
+                placeholder="e.g., Main Station"
+                value={searchStartStop}
+                onChange={(e) => setSearchStartStop(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearchBuses()}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="end-stop">End Stop</label>
+              <input
+                id="end-stop"
+                type="text"
+                placeholder="e.g., City Center"
+                value={searchEndStop}
+                onChange={(e) => setSearchEndStop(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearchBuses()}
+              />
+            </div>
+            <div className="form-actions">
+              <button
+                className="btn-primary"
+                onClick={handleSearchBuses}
+                disabled={searchLoading}
+              >
+                {searchLoading ? 'Searching...' : 'Search'}
+              </button>
+              {searchResults && (
+                <button className="btn-secondary" onClick={handleClearSearch}>
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {searchResults && (
+            <div className="search-results">
+              <div className="results-header">
+                <h4>{searchResults.message}</h4>
+              </div>
+              {searchResults.buses.length > 0 ? (
+                <div className="buses-list">
+                  {searchResults.buses.map((bus) => (
+                    <div
+                      key={bus.id || bus.busId}
+                      className={`bus-item ${selectedBusId === (bus.busId || bus.id) ? 'active' : ''}`}
+                      onClick={() => handleSelectBus(bus)}
+                    >
+                      <div className="bus-item-header">
+                        <strong>{bus.plateNumber || bus.busId}</strong>
+                        <span className="route-badge" style={{ backgroundColor: bus.routeColor }}>
+                          {bus.routeName}
+                        </span>
+                      </div>
+                      <div className="bus-item-info">
+                        {bus.currentStop && <span>📍 {bus.currentStop}</span>}
+                        {bus.speed && <span>⚡ {Math.round(bus.speed)} km/h</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="panel-empty">No buses found for this route</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {selectedBus && (
+          <div className="panel bus-details-panel">
+            <div className="panel-header">
+              <h3>Bus Details</h3>
+              <button className="close-btn" onClick={() => setSelectedBusId('')}>✕</button>
+            </div>
             <div className="bus-details-grid">
               <div className="bus-details-header-row">
                 <strong>{selectedBus.plateNumber || selectedBus.busId || selectedBus.id}</strong>
@@ -310,8 +423,8 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
                 </strong>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
