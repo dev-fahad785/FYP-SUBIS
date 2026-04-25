@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import {
-  CircleMarker,
   MapContainer,
   Marker,
   Popup,
@@ -20,36 +19,48 @@ L.Icon.Default.mergeOptions({
 
 const DEFAULT_CENTER = [29.3783, 71.7738];
 
-const busIcon = L.divIcon({
-  className: 'transit-icon-wrapper',
-  html: `
-    <div class="transit-bus-icon">
-      <span>BUS</span>
-    </div>
-  `,
-  iconSize: [38, 38],
-  iconAnchor: [19, 19],
-});
+function createBusIcon(simulated = false, highlighted = false) {
+  const baseSize = highlighted ? 64 : 44;
+  const innerSize = highlighted ? 40 : 24;
+  return L.divIcon({
+    className: 'transit-icon-wrapper',
+    html: `
+      <div class="transit-bus-marker ${simulated ? 'simulated' : ''} ${highlighted ? 'highlighted' : ''}">
+        <div class="transit-bus-ripple"></div>
+        <div class="transit-bus-icon" style="width: ${innerSize}px; height: ${innerSize}px; font-size: ${highlighted ? '20px' : '14px'};">
+          <span>B</span>
+        </div>
+      </div>
+    `,
+    iconSize: [baseSize, baseSize],
+    iconAnchor: [baseSize / 2, baseSize / 2],
+  });
+}
+
+const busIcon = createBusIcon();
+const simulatedBusIcon = createBusIcon(true);
+const highlightedBusIcon = createBusIcon(false, true);
+const highlightedSimulatedBusIcon = createBusIcon(true, true);
 
 function createStopIcon(color = '#3B82F6') {
   return L.divIcon({
     className: 'transit-icon-wrapper',
-    html: `<div class="transit-stop-icon" style="border-color:${color};"></div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
+    html: `
+      <div class="transit-stop-pin" style="--stop-color:${color};">
+        <span class="transit-stop-pin-core"></span>
+      </div>
+    `,
+    iconSize: [24, 32],
+    iconAnchor: [12, 30],
   });
 }
 
-function createUserIcon(label = 'You', color = '#22C55E') {
+function createStudentDotIcon(color = '#22C55E') {
   return L.divIcon({
     className: 'transit-icon-wrapper',
-    html: `
-      <div class="transit-user-icon" style="--marker-color:${color};">
-        <span>${label.slice(0, 1).toUpperCase()}</span>
-      </div>
-    `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    html: `<div class="transit-student-dot" style="--marker-color:${color};"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
   });
 }
 
@@ -76,6 +87,8 @@ export default function TransitMap({
   center = DEFAULT_CENTER,
   zoom = 14,
   className = '',
+  onBusSelect,
+  highlightedBusIds = [],
 }) {
   return (
     <div className={`transit-map-shell ${className}`.trim()}>
@@ -111,33 +124,67 @@ export default function TransitMap({
           </div>
         ))}
         {/* Show buses, visually distinguish simulated */}
-        {buses.map((bus) => (
-          <Marker
-            key={bus.id || bus.busId}
-            position={[bus.latitude, bus.longitude]}
-            icon={bus.simulated ? createUserIcon('Sim', '#F59E42') : busIcon}
-          >
-            <Popup>
-              <strong>{bus.plateNumber || bus.busId || bus.id}</strong>
-              <div>Lat: {bus.latitude.toFixed(5)}, Lng: {bus.longitude.toFixed(5)}</div>
-              {bus.simulated && <div style={{ color: '#F59E42' }}>Simulated</div>}
-              {bus.lastUpdate && (
-                <div>
-                  Updated: {new Date(bus.lastUpdate).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </div>
-              )}
-            </Popup>
-          </Marker>
-        ))}
+        {buses.map((bus) => {
+          const busId = bus.id || bus.busId;
+          const isHighlighted = highlightedBusIds.includes(busId);
+          let icon = busIcon;
+          if (isHighlighted && bus.simulated) {
+            icon = highlightedSimulatedBusIcon;
+          } else if (isHighlighted) {
+            icon = highlightedBusIcon;
+          } else if (bus.simulated) {
+            icon = simulatedBusIcon;
+          }
+
+          return (
+            <Marker
+              key={busId}
+              position={[bus.latitude, bus.longitude]}
+              icon={icon}
+              eventHandlers={{
+                click: () => {
+                  if (onBusSelect) {
+                    onBusSelect(bus);
+                  }
+                },
+              }}
+            >
+              <Popup>
+                <strong>{bus.plateNumber || bus.busId || bus.id}</strong>
+                <div>Lat: {bus.latitude.toFixed(5)}, Lng: {bus.longitude.toFixed(5)}</div>
+                {bus.routeName && <div>Route: {bus.routeName}</div>}
+                {bus.currentStop && <div>Current stop: {bus.currentStop}</div>}
+                {bus.nextStop && <div>Next stop: {bus.nextStop}</div>}
+                {typeof bus.nextStopEtaMinutes === 'number' && (
+                  <div>ETA to next stop: {bus.nextStopEtaMinutes} min</div>
+                )}
+                {!bus.currentStop && bus.nearestStop && (
+                  <div>
+                    Nearest stop: {bus.nearestStop}
+                    {bus.nearestStopDistanceKm
+                      ? ` (${bus.nearestStopDistanceKm} km)`
+                      : ''}
+                  </div>
+                )}
+                {bus.simulated && <div style={{ color: '#F59E42' }}>Simulated</div>}
+                {bus.lastUpdate && (
+                  <div>
+                    Updated: {new Date(bus.lastUpdate).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                )}
+              </Popup>
+            </Marker>
+          );
+        })}
         {/* Show student locations */}
         {students.map((student) => (
           <Marker
             key={student.userId}
             position={[student.latitude, student.longitude]}
-            icon={createUserIcon(student.name || 'S', '#10B981')}
+            icon={createStudentDotIcon('#10B981')}
           >
             <Popup>
               <strong>{student.name || 'Student'}</strong>
