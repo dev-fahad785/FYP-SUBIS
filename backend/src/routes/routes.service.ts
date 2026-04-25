@@ -206,4 +206,75 @@ export class RoutesService {
       where: { id: stopId },
     });
   }
+
+  // Search buses by start and end stop names
+  async searchBusesByStops(startStopName: string, endStopName: string) {
+    if (!startStopName?.trim() || !endStopName?.trim()) {
+      throw new BadRequestException(
+        'Both start stop name and end stop name are required',
+      );
+    }
+
+    const normalizeStop = (name: string) => name.toLowerCase().trim();
+    const normalizedStart = normalizeStop(startStopName);
+    const normalizedEnd = normalizeStop(endStopName);
+
+    // Find all routes that have both stops
+    const routes = await this.prisma.route.findMany({
+      where: { status: 'ACTIVE' },
+      include: {
+        stops: {
+          orderBy: { order: 'asc' },
+        },
+        buses: {
+          include: {
+            route: true,
+          },
+        },
+      },
+    });
+
+    // Filter routes that have both start and end stops in correct order
+    const matchedRoutes = routes.filter((route) => {
+      const stopNames = route.stops.map((s) => normalizeStop(s.name));
+      const startIndex = stopNames.indexOf(normalizedStart);
+      const endIndex = stopNames.indexOf(normalizedEnd);
+
+      // Start stop must come before end stop
+      return startIndex !== -1 && endIndex !== -1 && startIndex < endIndex;
+    });
+
+    if (matchedRoutes.length === 0) {
+      return {
+        buses: [],
+        routes: [],
+        message: 'No routes found for this journey',
+      };
+    }
+
+    // Collect all buses from matched routes
+    const buses = [];
+    matchedRoutes.forEach((route) => {
+      route.buses.forEach((bus) => {
+        buses.push({
+          ...bus,
+          routeName: route.name,
+          routeId: route.id,
+          routeColor: route.color,
+        });
+      });
+    });
+
+    return {
+      buses,
+      routes: matchedRoutes.map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color,
+        stops: r.stops,
+      })),
+      totalBuses: buses.length,
+      message: `Found ${buses.length} buses on ${matchedRoutes.length} route(s)`,
+    };
+  }
 }

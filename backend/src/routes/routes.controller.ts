@@ -79,4 +79,14 @@ export class RoutesController {
   async deleteStop(@Param('stopId') stopId: string) {
     return this.routesService.deleteStop(stopId);
   }
+
+  @Post('search/buses')
+  async searchBusesByStops(
+    @Body() body: { startStopName: string; endStopName: string },
+  ) {
+    return this.routesService.searchBusesByStops(
+      body.startStopName,
+      body.endStopName,
+    );
+  }
 }
