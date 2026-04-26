@@ -98,7 +98,7 @@ export const IUB_ROUTES = [
   },
   {
     id: 'ROUTE_4',
-    name: 'Route 4: BJC to Ismaili Colony',
+    name: 'Route 4: BJC to Islamia Colony',
     color: '#F59E0B',
     stops: [
       { name: 'Main Canteen', lat: 29.377721339244275, lng: 71.75699827767922 },
