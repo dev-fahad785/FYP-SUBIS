@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { TrackingGateway } from './tracking.gateway';
 import { TrackingService } from './tracking.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StudentAlertService } from './student-alert.service';
 
 interface StudentLocation {
   userId: string;
@@ -62,7 +63,18 @@ interface ClusterBusPayload {
   nearestStop: null;
   nearestStopDistanceKm: null;
 }
-
+interface StudentAlert {
+  busId: string;
+  routeId: string;
+  routeName?: string;
+  currentStop?: string | null;
+  nearestStop?: string | null;
+  nextStop?: string | null;
+  nextStopEtaMinutes?: number | null;
+  isSimulated?: boolean;
+  isCrowdsourced?: boolean;
+  plateNumber?: string;
+}
 @Injectable()
 export class ClusteringService {
   private readonly logger = new Logger(ClusteringService.name);
@@ -77,6 +89,7 @@ export class ClusteringService {
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => TrackingGateway))
     private readonly trackingGateway: TrackingGateway,
+    private readonly studentAlertService: StudentAlertService
   ) {}
 
   /**
@@ -113,7 +126,9 @@ export class ClusteringService {
     for (const [busId, cluster] of this.activeClusters.entries()) {
       if (now.getTime() - cluster.lastSeenAt.getTime() > CLUSTER_TIMEOUT_MS) {
         this.activeClusters.delete(busId);
-        this.logger.debug(`[MEMORY_CLEANUP] Expired cluster ${busId} removed from memory`);
+        this.logger.debug(
+          `[MEMORY_CLEANUP] Expired cluster ${busId} removed from memory`
+        );
         continue;
       }
       activeClusters.push(cluster.payload);
@@ -179,11 +194,14 @@ export class ClusteringService {
           current.latitude,
           current.longitude,
           candidate.latitude,
-          candidate.longitude,
+          candidate.longitude
         );
         const speedDelta = Math.abs(current.speed - candidate.speed);
 
-        if (distance <= CLUSTER_RADIUS_METERS && speedDelta <= SPEED_TOLERANCE_KMH) {
+        if (
+          distance <= CLUSTER_RADIUS_METERS &&
+          speedDelta <= SPEED_TOLERANCE_KMH
+        ) {
           currentCluster.push(candidate);
           visited.add(candidate.userId);
         }
@@ -216,16 +234,19 @@ export class ClusteringService {
           avgLng,
           now,
           memberUserIds,
-          avgSpeed,
+          avgSpeed
         );
 
         const probabilityScore = Math.min(
           98,
-          Math.max(60, Math.round(60 + (cluster.length - MIN_STUDENTS_FOR_BUS) * 8)),
+          Math.max(
+            60,
+            Math.round(60 + (cluster.length - MIN_STUDENTS_FOR_BUS) * 8)
+          )
         );
 
         this.logger.log(
-          `[CLUSTER_DETECTED] Bus: ${dynamicBusId} | Route: ${matchedRoute.id} | Students: ${cluster.length} | Probability: ${probabilityScore}% | Speed: ${avgSpeed.toFixed(1)} km/h`,
+          `[CLUSTER_DETECTED] Bus: ${dynamicBusId} | Route: ${matchedRoute.id} | Students: ${cluster.length} | Probability: ${probabilityScore}% | Speed: ${avgSpeed.toFixed(1)} km/h`
         );
 
         // Create bus object WITHOUT saving to database
@@ -267,6 +288,7 @@ export class ClusteringService {
 
         // Emit ONLY via WebSocket, DON'T save to database
         this.trackingGateway.server.emit('bus_moved', busPayload);
+        this.emitStudentAlerts(busPayload);
 
         // Remove students from active tracking and notify clients that the
         // riders are now represented by the detected bus instead of markers.
@@ -279,6 +301,21 @@ export class ClusteringService {
           });
         }
       }
+    }
+  }
+
+  private emitStudentAlerts(busUpdate: StudentAlert) {
+    const triggers = this.studentAlertService.evaluateBusUpdate(busUpdate);
+
+    for (const trigger of triggers) {
+      this.trackingGateway.server
+        .to(trigger.socketId)
+        .emit('student_alert_triggered', {
+          alert: trigger.alert,
+          bus: busUpdate,
+          message: trigger.message,
+          etaMinutes: trigger.arrivalEtaMinutes,
+        });
     }
   }
 
@@ -296,9 +333,10 @@ export class ClusteringService {
         order: number;
       }>;
       polyline: unknown;
-    }>,
+    }>
   ): RouteCandidate | null {
-    let bestMatch: null | { route: RouteCandidate; distanceMeters: number } = null;
+    let bestMatch: null | { route: RouteCandidate; distanceMeters: number } =
+      null;
 
     for (const route of routes) {
       const pathPoints = this.normalizePolyline(route.polyline, route.stops);
@@ -311,7 +349,7 @@ export class ClusteringService {
           latitude,
           longitude,
           point[0],
-          point[1],
+          point[1]
         );
         return Math.min(bestDistance, pointDistance);
       }, Number.POSITIVE_INFINITY);
@@ -338,7 +376,7 @@ export class ClusteringService {
 
   private normalizePolyline(
     polyline: unknown,
-    stops: Array<{ latitude: number; longitude: number }>,
+    stops: Array<{ latitude: number; longitude: number }>
   ): Array<[number, number]> {
     if (Array.isArray(polyline)) {
       const points = polyline
@@ -369,7 +407,7 @@ export class ClusteringService {
     longitude: number,
     now: Date,
     memberUserIds: string[],
-    speed: number,
+    speed: number
   ) {
     const CLUSTER_TIMEOUT_MS = 300000; // 5 minutes
     const BASE_REUSE_DISTANCE_METERS = 250;
@@ -391,15 +429,15 @@ export class ClusteringService {
         latitude,
         longitude,
         cluster.latitude,
-        cluster.longitude,
+        cluster.longitude
       );
 
       const overlapCount = memberUserIds.filter((userId) =>
-        cluster.memberUserIds.includes(userId),
+        cluster.memberUserIds.includes(userId)
       ).length;
       const elapsedSeconds = Math.max(
         1,
-        (now.getTime() - cluster.lastSeenAt.getTime()) / 1000,
+        (now.getTime() - cluster.lastSeenAt.getTime()) / 1000
       );
       const speedMetersPerSecond = Math.max(speed, cluster.speed, 15) / 3.6;
       const dynamicReuseDistance =
@@ -410,7 +448,7 @@ export class ClusteringService {
         distanceMeters <= dynamicReuseDistance
       ) {
         this.logger.debug(
-          `[CLUSTER_REUSED] Bus ${busId} for cluster ${distanceMeters.toFixed(0)}m away with ${overlapCount} shared riders`,
+          `[CLUSTER_REUSED] Bus ${busId} for cluster ${distanceMeters.toFixed(0)}m away with ${overlapCount} shared riders`
         );
         return busId;
       }
@@ -426,7 +464,7 @@ export class ClusteringService {
     lat1: number,
     lon1: number,
     lat2: number,
-    lon2: number,
+    lon2: number
   ): number {
     const R = 6371e3;
     const rad = Math.PI / 180;
