@@ -6,6 +6,7 @@ import { ClusteringService } from './clustering.service';
 import { CrowdService } from './crowd.service';
 import { CrowdController } from './crowd.controller';
 import { PrismaModule } from '../prisma/prisma.module';
+import { StudentAlertService } from './student-alert.service';
 
 @Module({
   imports: [PrismaModule],
@@ -16,6 +17,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     BusSimulatorService,
     ClusteringService,
     CrowdService,
+    StudentAlertService,
   ],
 })
 export class TrackingModule {}

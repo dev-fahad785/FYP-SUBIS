@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import TransitMap from './TransitMap';
 
@@ -10,6 +10,7 @@ function getRouteColor(index) {
 }
 
 export default function LiveMap({ userId = '', userName = 'Student' }) {
+  const socketRef = useRef(null);
   const [routes, setRoutes] = useState([]);
   const [buses, setBuses] = useState({});
   const [students, setStudents] = useState({});
@@ -20,6 +21,8 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
   const [searchEndStop, setSearchEndStop] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [activeAlerts, setActiveAlerts] = useState([]);
+  const [alertFeed, setAlertFeed] = useState([]);
 
   useEffect(() => {
     let ignore = false;
@@ -42,6 +45,7 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
 
   useEffect(() => {
     const socket = io(API_BASE, { transports: ['websocket', 'polling'] });
+    socketRef.current = socket;
 
     let watchId = null;
 
@@ -123,6 +127,35 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
         setStatus('Loaded active buses from live snapshot.');
       }
     });
+    socket.on('student_alerts_snapshot', (snapshot) => {
+      setActiveAlerts(Array.isArray(snapshot) ? snapshot : []);
+    });
+    socket.on('student_alert_triggered', (payload) => {
+      const alertSummary = {
+        ...payload,
+        triggeredAt: new Date().toISOString(),
+      };
+
+      setActiveAlerts((current) =>
+        current.map((alert) =>
+          alert.id === payload.alert.id
+            ? {
+                ...alert,
+                triggeredBusIds: [...(alert.triggeredBusIds || []), payload.bus.busId],
+              }
+            : alert,
+        ),
+      );
+
+      setAlertFeed((current) => [alertSummary, ...current].slice(0, 3));
+      setStatus(payload.message || 'A bus alert was triggered.');
+
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        new Notification('SUBIS bus alert', {
+          body: `${payload.message} ETA to your start stop: ${payload.etaMinutes ?? 'unknown'} min.`,
+        });
+      }
+    });
     socket.on('students_snapshot', (snapshot) => {
       const nextStudents = {};
       for (const student of snapshot) {
@@ -154,6 +187,7 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
       setStatus('Live bus updates unavailable.');
     });
     return () => {
+      socketRef.current = null;
       if (watchId !== null) {
         navigator.geolocation?.clearWatch(watchId);
       }
@@ -233,6 +267,66 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
     setSearchResults(null);
     setSearchStartStop('');
     setSearchEndStop('');
+  };
+
+  const requestBrowserNotificationPermission = async () => {
+    if (typeof Notification === 'undefined') {
+      return 'unsupported';
+    }
+
+    if (Notification.permission === 'granted') {
+      return 'granted';
+    }
+
+    return Notification.requestPermission();
+  };
+
+  const findTriggerStopForRoute = (route) => {
+    const normalizedStart = searchStartStop.toLowerCase().trim();
+    const stops = Array.isArray(route?.stops) ? route.stops : [];
+    const startIndex = stops.findIndex(
+      (stop) => stop.name.toLowerCase().trim() === normalizedStart,
+    );
+
+    if (startIndex <= 0) {
+      return null;
+    }
+
+    return stops[startIndex - 1] ?? null;
+  };
+
+  const handleCreateAlert = async (route) => {
+    if (!route?.id) {
+      setStatus('Select a matching route before creating an alert.');
+      return;
+    }
+
+    const triggerStop = findTriggerStopForRoute(route);
+    if (!triggerStop) {
+      setStatus('A previous stop could not be determined for this route.');
+      return;
+    }
+
+    const permission = await requestBrowserNotificationPermission();
+    if (permission === 'denied') {
+      setStatus('Browser notifications are blocked, so alerts will stay in the app.');
+    }
+
+    socketRef.current?.emit('register_student_alert', {
+      routeId: route.id,
+      routeName: route.name,
+      startStopName: searchStartStop,
+      endStopName: searchEndStop,
+      triggerStopName: triggerStop.name,
+      triggerStopOrder: triggerStop.order,
+    });
+
+    setStatus(`Alert created for ${route.name}. You will be notified when the bus reaches ${triggerStop.name}.`);
+  };
+
+  const handleClearAlert = (alertId) => {
+    socketRef.current?.emit('clear_student_alert', { alertId });
+    setActiveAlerts((current) => current.filter((alert) => alert.id !== alertId));
   };
 
   // Log when mode changes or buses are displayed
@@ -340,6 +434,79 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
               )}
             </div>
           </div>
+
+          {searchResults?.routes?.length > 0 && (
+            <div className="panel-subsection">
+              <div className="panel-header">
+                <h4>Matching routes</h4>
+              </div>
+              <div className="route-list">
+                {searchResults.routes.map((route) => {
+                  const triggerStop = findTriggerStopForRoute(route);
+                  return (
+                    <div key={route.id} className="route-list-item">
+                      <div>
+                        <strong>{route.name}</strong>
+                        <p>
+                          Alert stop: {triggerStop ? triggerStop.name : 'Previous stop unavailable'}
+                        </p>
+                      </div>
+                      <button
+                        className="ghost"
+                        type="button"
+                        onClick={() => handleCreateAlert(route)}
+                        disabled={!triggerStop}
+                      >
+                        Set alert
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {activeAlerts.length > 0 && (
+            <div className="panel-subsection">
+              <div className="panel-header">
+                <h4>Active alerts</h4>
+              </div>
+              <div className="buses-list">
+                {activeAlerts.map((alert) => (
+                  <div key={alert.id} className="bus-item">
+                    <div className="bus-item-header">
+                      <strong>{alert.routeName}</strong>
+                      <span className="route-badge">{alert.startStopName}</span>
+                    </div>
+                    <div className="bus-item-info">
+                      <span>Trigger: {alert.triggerStopName}</span>
+                      <span>
+                        {alert.triggeredBusIds?.length > 0
+                          ? `Triggered for ${alert.triggeredBusIds.length} bus trip(s)`
+                          : 'Waiting'}
+                      </span>
+                    </div>
+                    <div className="form-actions">
+                      <button className="btn-secondary" type="button" onClick={() => handleClearAlert(alert.id)}>
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {alertFeed.length > 0 && (
+            <div className="panel-subsection">
+              <div className="panel-header">
+                <h4>Latest alert</h4>
+              </div>
+              <div className="banner success">
+                {alertFeed[0].message} ETA to start stop: {alertFeed[0].etaMinutes ?? 'unknown'} min.
+              </div>
+            </div>
+          )}
 
           {searchResults && (
             <div className="search-results">
