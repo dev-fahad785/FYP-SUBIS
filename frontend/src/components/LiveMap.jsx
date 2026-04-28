@@ -219,7 +219,32 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
   // Select buses based on mode
   const visibleBuses = mode === 'simulated' ? simulatedBuses : realBuses;
   const visibleStudents = mode === 'simulated' ? simulatedStudents : realStudents;
-  const selectedBus = selectedBusId ? buses[selectedBusId] : null;
+  const getBusId = (bus) => bus?.busId || bus?.id || '';
+
+  const getLiveBusForBus = (bus) => {
+    const busId = getBusId(bus);
+    return busId ? buses[busId] ?? null : null;
+  };
+
+  const getEtaToStartStopMinutes = (bus) => {
+    const liveBus = getLiveBusForBus(bus);
+    const etaSource = liveBus?.etas ?? bus?.etas ?? [];
+    const normalizedStart = searchStartStop.toLowerCase().trim();
+
+    const matchingEta = etaSource.find(
+      (eta) => eta.stopName.toLowerCase().trim() === normalizedStart,
+    );
+
+    if (typeof matchingEta?.estimatedMinutes === 'number') {
+      return matchingEta.estimatedMinutes;
+    }
+
+    return null;
+  };
+
+  const selectedBus = selectedBusId
+    ? buses[selectedBusId] ?? searchResults?.buses?.find((bus) => getBusId(bus) === selectedBusId) ?? null
+    : null;
 
   useEffect(() => {
     if (!selectedBusId) {
@@ -281,63 +306,10 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
     return Notification.requestPermission();
   };
 
-  const findTriggerStopForRoute = (route) => {
-    const normalizedStart = searchStartStop.toLowerCase().trim();
-    const stops = Array.isArray(route?.stops) ? route.stops : [];
-    const startIndex = stops.findIndex(
-      (stop) => stop.name.toLowerCase().trim() === normalizedStart,
-    );
-
-    if (startIndex <= 0) {
-      return null;
-    }
-
-    return stops[startIndex - 1] ?? null;
-  };
-
-  const handleCreateAlert = async (route) => {
-    if (!route?.id) {
-      setStatus('Select a matching route before creating an alert.');
-      return;
-    }
-
-    const triggerStop = findTriggerStopForRoute(route);
-    if (!triggerStop) {
-      setStatus('A previous stop could not be determined for this route.');
-      return;
-    }
-
-    const permission = await requestBrowserNotificationPermission();
-    if (permission === 'denied') {
-      setStatus('Browser notifications are blocked, so alerts will stay in the app.');
-    }
-
-    socketRef.current?.emit('register_student_alert', {
-      routeId: route.id,
-      routeName: route.name,
-      startStopName: searchStartStop,
-      endStopName: searchEndStop,
-      triggerStopName: triggerStop.name,
-      triggerStopOrder: triggerStop.order,
-    });
-
-    setStatus(`Alert created for ${route.name}. You will be notified when the bus reaches ${triggerStop.name}.`);
-  };
-
   const handleClearAlert = (alertId) => {
     socketRef.current?.emit('clear_student_alert', { alertId });
     setActiveAlerts((current) => current.filter((alert) => alert.id !== alertId));
   };
-
-  // Log when mode changes or buses are displayed
-  useMemo(() => {
-    console.log(
-      `[FRONTEND_DISPLAY] Mode: ${mode.toUpperCase()} | Showing ${visibleBuses.length} buses | ${visibleStudents.length} students`,
-    );
-    if (mode === 'real') {
-      console.log(`[FRONTEND_DISPLAY] Real mode buses: ${visibleBuses.map(b => `${b.busId}(P:${b.probabilityScore || 'N/A'}%)`).join(', ') || 'None'}`);
-    }
-  }, [mode, visibleBuses, visibleStudents]);
 
   return (
     <div className="student-map-layout">
@@ -435,37 +407,6 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
             </div>
           </div>
 
-          {searchResults?.routes?.length > 0 && (
-            <div className="panel-subsection">
-              <div className="panel-header">
-                <h4>Matching routes</h4>
-              </div>
-              <div className="route-list">
-                {searchResults.routes.map((route) => {
-                  const triggerStop = findTriggerStopForRoute(route);
-                  return (
-                    <div key={route.id} className="route-list-item">
-                      <div>
-                        <strong>{route.name}</strong>
-                        <p>
-                          Alert stop: {triggerStop ? triggerStop.name : 'Previous stop unavailable'}
-                        </p>
-                      </div>
-                      <button
-                        className="ghost"
-                        type="button"
-                        onClick={() => handleCreateAlert(route)}
-                        disabled={!triggerStop}
-                      >
-                        Set alert
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {activeAlerts.length > 0 && (
             <div className="panel-subsection">
               <div className="panel-header">
@@ -517,18 +458,24 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
                 <div className="buses-list">
                   {searchResults.buses.map((bus) => (
                     <div
-                      key={bus.id || bus.busId}
-                      className={`bus-item ${selectedBusId === (bus.busId || bus.id) ? 'active' : ''}`}
+                      key={getBusId(bus)}
+                      className={`bus-item ${selectedBusId === getBusId(bus) ? 'active' : ''}`}
                       onClick={() => handleSelectBus(bus)}
                     >
                       <div className="bus-item-header">
-                        <strong>{bus.plateNumber || bus.busId}</strong>
+                        <strong>{bus.plateNumber || getBusId(bus)}</strong>
                         <span className="route-badge" style={{ backgroundColor: bus.routeColor }}>
                           {bus.routeName}
                         </span>
                       </div>
                       <div className="bus-item-info">
                         {bus.currentStop && <span>📍 {bus.currentStop}</span>}
+                        <span>
+                          ⏱ ETA to {searchStartStop || 'start stop'}:{' '}
+                          {getEtaToStartStopMinutes(bus) !== null
+                            ? `${getEtaToStartStopMinutes(bus)} min`
+                            : 'Not available'}
+                        </span>
                         {bus.speed && <span>⚡ {Math.round(bus.speed)} km/h</span>}
                       </div>
                     </div>
@@ -566,7 +513,15 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
                 <strong>{selectedBus.nextStop || selectedBus.nearestStop || 'Not available'}</strong>
               </div>
               <div className="bus-details-row">
-                <span className="detail-label">ETA</span>
+                <span className="detail-label">ETA to start stop</span>
+                <strong>
+                  {getEtaToStartStopMinutes(selectedBus) !== null
+                    ? `${getEtaToStartStopMinutes(selectedBus)} min`
+                    : 'Not available'}
+                </strong>
+              </div>
+              <div className="bus-details-row">
+                <span className="detail-label">ETA to next stop</span>
                 <strong>
                   {typeof selectedBus.nextStopEtaMinutes === 'number'
                     ? `${selectedBus.nextStopEtaMinutes} min`

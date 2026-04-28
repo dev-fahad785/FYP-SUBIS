@@ -213,10 +213,10 @@ export class TrackingService {
 
   // Haversine formula to calculate distance between two lat/lng points in km
   private calculateDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
+    lat1: number, //bus latitude
+    lon1: number, //bus longitude
+    lat2: number, //stop latitude
+    lon2: number, //stop longitude
   ): number {
     const R = 6371; // Radius of the earth in km
     const dLat = this.deg2rad(lat2 - lat1);
