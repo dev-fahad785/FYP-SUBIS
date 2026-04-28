@@ -23,6 +23,9 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [activeAlerts, setActiveAlerts] = useState([]);
   const [alertFeed, setAlertFeed] = useState([]);
+  const [armedBuses, setArmedBuses] = useState({}); // { [busId]: startStopName }
+  const [activeAlarms, setActiveAlarms] = useState({}); // { [busId]: true }
+  const audioRef = useRef(null);
 
   useEffect(() => {
     let ignore = false;
@@ -44,6 +47,14 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
   }, []);
 
   useEffect(() => {
+    // initialize alarm audio; user should place their alert file at /alarm.mp3
+    try {
+      audioRef.current = new Audio('/alarm.mp3');
+      audioRef.current.loop = true;
+    } catch (e) {
+      console.warn('Alarm audio unavailable', e);
+    }
+
     const socket = io(API_BASE, { transports: ['websocket', 'polling'] });
     socketRef.current = socket;
 
@@ -103,9 +114,9 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
     socket.on('bus_moved', (payload) => {
       // Map isSimulated to simulated for frontend filtering
       const mapped = { ...payload, simulated: payload.simulated ?? payload.isSimulated };
-      console.log(
-        `[FRONTEND] Bus moved: ${payload.busId} (Simulated: ${mapped.simulated}, Crowdsourced: ${payload.isCrowdsourced})`,
-      );
+      // console.log(
+      //   `[FRONTEND] Bus moved: ${payload.busId} (Simulated: ${mapped.simulated}, Crowdsourced: ${payload.isCrowdsourced})`,
+      // );
       setBuses((current) => ({ ...current, [payload.busId]: mapped }));
       setStatus('Live bus updates connected.');
     });
@@ -118,10 +129,10 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
       const simulated = snapshot.filter(b => b.isSimulated).length;
       const crowdsourced = snapshot.filter(b => b.isCrowdsourced).length;
       const other = snapshot.length - simulated - crowdsourced;
-      console.log(
-        `[FRONTEND] Received buses_snapshot: Total ${snapshot.length} | Simulated: ${simulated}, Crowdsourced: ${crowdsourced}, Other: ${other}`,
-      );
-      console.log(`[FRONTEND] Bus IDs: ${snapshot.map(b => b.busId).join(', ')}`);
+      // console.log(
+      //   `[FRONTEND] Received buses_snapshot: Total ${snapshot.length} | Simulated: ${simulated}, Crowdsourced: ${crowdsourced}, Other: ${other}`,
+      // );
+      // console.log(`[FRONTEND] Bus IDs: ${snapshot.map(b => b.busId).join(', ')}`);
       setBuses(nextBuses);
       if (snapshot.length > 0) {
         setStatus('Loaded active buses from live snapshot.');
@@ -164,7 +175,7 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
           isSimulated: Boolean(student.isSimulated),
         };
       }
-      console.log(`[FRONTEND] Received students_snapshot: ${snapshot.length} students`);
+      // console.log(`[FRONTEND] Received students_snapshot: ${snapshot.length} students`);
       setStudents(nextStudents);
     });
     socket.on('student_moved', (payload) => {
@@ -195,6 +206,84 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
     };
   }, [userId, userName]);
 
+  // Toggle client-only armed state for a bus (associate with current searchStartStop)
+  const toggleArmForBus = (bus) => {
+    const busId = getBusId(bus);
+    if (!busId) return;
+    setArmedBuses((current) => {
+      const next = { ...current };
+      if (next[busId]) {
+        delete next[busId];
+      } else if (searchStartStop && searchStartStop.trim()) {
+        next[busId] = searchStartStop.trim();
+      } else {
+        // fallback: use bus.currentStop as target if user didn't enter a start stop
+        next[busId] = (bus.currentStop || '').trim();
+      }
+      return next;
+    });
+  };
+
+  const stopAlarmForBus = (busId) => {
+    setActiveAlarms((current) => {
+      const next = { ...current };
+      delete next[busId];
+      return next;
+    });
+    try {
+      audioRef.current?.pause();
+      audioRef.current && (audioRef.current.currentTime = 0);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // Watch live buses and armedBuses to trigger client-side alarm when bus is one stop before start stop
+  useEffect(() => {
+    if (!audioRef.current) return;
+
+    const armedIds = Object.keys(armedBuses);
+    if (armedIds.length === 0) return;
+
+    for (const busId of armedIds) {
+      const startStopName = (armedBuses[busId] || '').toLowerCase().trim();
+      const liveBus = buses[busId];
+      if (!liveBus || !Array.isArray(liveBus.etas)) continue;
+
+      const etas = liveBus.etas;
+      const startIndex = etas.findIndex((eta) => eta.stopName?.toLowerCase().trim() === startStopName);
+      if (startIndex <= 0) continue; // either not found or it's the first stop
+
+      const prevEta = etas[startIndex - 1];
+      const prevStopName = prevEta?.stopName?.toLowerCase().trim() || '';
+
+      const isAtPrevStop = (liveBus.currentStop || '').toLowerCase().trim() === prevStopName
+        || (liveBus.nearestStop || '').toLowerCase().trim() === prevStopName;
+
+      const prevMinutes = typeof prevEta?.estimatedMinutes === 'number' ? prevEta.estimatedMinutes : null;
+
+      const shouldTrigger = isAtPrevStop || (prevMinutes !== null && prevMinutes <= 1);
+
+      if (shouldTrigger && !activeAlarms[busId]) {
+        // start alarm
+        try {
+          audioRef.current.play().catch(() => null);
+        } catch (e) {
+          // ignore playback errors
+        }
+        setActiveAlarms((current) => ({ ...current, [busId]: true }));
+
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification('SUBIS bus alert', {
+            body: `Bus ${liveBus.plateNumber || liveBus.busId} is approaching your start stop.`,
+          });
+        }
+      }
+    }
+
+    // no cleanup needed here; stopping handled by user action
+  }, [buses, armedBuses, activeAlarms]);
+
   // Separate simulated and real buses, limit simulated to 3
   const busList = useMemo(() => Object.values(buses), [buses]);
   const simulatedBuses = busList.filter((b) => b.simulated).slice(0, 3);
@@ -206,12 +295,12 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
   const realStudents = studentList.filter((student) => !student.isSimulated);
 
   // Log bus breakdown whenever buses change
-  useMemo(() => {
-    console.log(
-      `[FRONTEND_STATE] Total buses in state: ${busList.length} | Simulated: ${simulatedBuses.length} | Real: ${realBuses.length}`,
-    );
-    console.log(`[FRONTEND_STATE] Real bus IDs: ${realBuses.map(b => b.busId).join(', ') || 'None'}`);
-  }, [busList, simulatedBuses, realBuses]);
+  // useMemo(() => {
+  //   console.log(
+  //     `[FRONTEND_STATE] Total buses in state: ${busList.length} | Simulated: ${simulatedBuses.length} | Real: ${realBuses.length}`,
+  //   );
+  //   console.log(`[FRONTEND_STATE] Real bus IDs: ${realBuses.map(b => b.busId).join(', ') || 'None'}`);
+  // }, [busList, simulatedBuses, realBuses]);
 
   // Assign colors to routes
   const routesWithColor = useMemo(() => routes.map((r, i) => ({ ...r, color: getRouteColor(i) })), [routes]);
@@ -477,6 +566,34 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
                             : 'Not available'}
                         </span>
                         {bus.speed && <span>⚡ {Math.round(bus.speed)} km/h</span>}
+                        <div style={{ marginLeft: '8px' }}>
+                          {(() => {
+                            const id = getBusId(bus);
+                            const armed = Boolean(armedBuses[id]);
+                            const alarming = Boolean(activeAlarms[id]);
+                            return (
+                              <>
+                                <button
+                                  className={`btn-${armed ? 'danger' : 'primary'}`}
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); toggleArmForBus(bus); }}
+                                >
+                                  {armed ? 'Armed' : 'Set alert'}
+                                </button>
+                                {alarming && (
+                                  <button
+                                    className="btn-secondary"
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); stopAlarmForBus(id); }}
+                                    style={{ marginLeft: '6px' }}
+                                  >
+                                    Stop alarm
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -527,6 +644,37 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
                     ? `${selectedBus.nextStopEtaMinutes} min`
                     : 'Not available'}
                 </strong>
+              </div>
+              <div className="bus-details-row">
+                <span className="detail-label">Student alert</span>
+                <div>
+                  {(() => {
+                    const id = getBusId(selectedBus);
+                    const armed = Boolean(armedBuses[id]);
+                    const alarming = Boolean(activeAlarms[id]);
+                    return (
+                      <>
+                        <button
+                          className={`btn-${armed ? 'danger' : 'primary'}`}
+                          type="button"
+                          onClick={() => toggleArmForBus(selectedBus)}
+                        >
+                          {armed ? 'Armed' : 'Set alert'}
+                        </button>
+                        {alarming && (
+                          <button
+                            className="btn-secondary"
+                            type="button"
+                            onClick={() => stopAlarmForBus(id)}
+                            style={{ marginLeft: '8px' }}
+                          >
+                            Stop alarm
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
               <div className="bus-details-row">
                 <span className="detail-label">Speed</span>
