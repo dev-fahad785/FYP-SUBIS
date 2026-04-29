@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
+import AlarmPopup from './AlarmPopup';
 import TransitMap from './TransitMap';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
@@ -286,7 +287,7 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
 
   // Separate simulated and real buses, limit simulated to 3
   const busList = useMemo(() => Object.values(buses), [buses]);
-  const simulatedBuses = busList.filter((b) => b.simulated).slice(0, 3);
+  const simulatedBuses = busList.filter((b) => b.simulated);
   const realBuses = busList.filter((b) => !b.simulated);
   const studentList = useMemo(() => Object.values(students), [students]);
   const simulatedStudents = studentList
@@ -400,8 +401,23 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
     setActiveAlerts((current) => current.filter((alert) => alert.id !== alertId));
   };
 
+  const ringingBusId = Object.keys(activeAlarms)[0] || '';
+  const ringingBus = ringingBusId ? buses[ringingBusId] ?? null : null;
+  const ringingStartStopName = ringingBusId ? armedBuses[ringingBusId] ?? '' : '';
+  const ringingEtaMinutes = ringingBus && ringingStartStopName
+    ? getEtaToStartStopMinutes(ringingBus)
+    : null;
+  const ringingEtaText = typeof ringingEtaMinutes === 'number' ? `${ringingEtaMinutes} min` : 'unknown ETA';
+
   return (
     <div className="student-map-layout">
+      <AlarmPopup
+        open={Boolean(ringingBusId)}
+        busName={ringingBus?.plateNumber || ringingBus?.busId || 'This bus'}
+        stopName={ringingStartStopName || 'your stop'}
+        etaText={ringingEtaText}
+        onStopAlarm={() => stopAlarmForBus(ringingBusId)}
+      />
       <div className="map-toolbar">
         <div>
           <h3>Live bus map</h3>
