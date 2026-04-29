@@ -44,6 +44,13 @@ export class BusSimulatorService implements OnModuleInit {
 
   private readonly directBuses: SimulatedBusState[] = [
     {
+      busId: 'SIM_BUS_ROUTE_1',
+      routeId: 'ROUTE_1',
+      speed: 30,
+      segmentIndex: 0,
+      progress: 0.1,
+    },
+    {
       busId: 'SIM_BUS_ROUTE_2',
       routeId: 'ROUTE_2',
       speed: 34,
@@ -63,6 +70,13 @@ export class BusSimulatorService implements OnModuleInit {
       speed: 29,
       segmentIndex: 2,
       progress: 0.55,
+    },
+    {
+      busId: 'SIM_BUS_ROUTE_5',
+      routeId: 'ROUTE_3',
+      speed: 25,
+      segmentIndex: 0,
+      progress: 0.05,
     },
   ];
 
