@@ -9,6 +9,8 @@ import { Server, Socket } from 'socket.io';
 import { TrackingService } from './tracking.service';
 import { ClusteringService } from './clustering.service';
 import { Inject, forwardRef } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { StudentAlertService } from './student-alert.service';
 
 @WebSocketGateway({
   cors: {
@@ -23,6 +25,8 @@ export class TrackingGateway {
     private readonly trackingService: TrackingService,
     @Inject(forwardRef(() => ClusteringService))
     private readonly clusteringService: ClusteringService,
+    private readonly prisma: PrismaService,
+    private readonly studentAlertService: StudentAlertService,
   ) {}
 
   // When a new client connects, send them the current snapshot of all active students and buses
@@ -60,6 +64,11 @@ export class TrackingGateway {
       client.emit('buses_snapshot', allBuses);
     } else {
       console.log(`[GATEWAY] No active buses to send to client ${client.id}`);
+    }
+
+    const alerts = this.studentAlertService.getAlerts(client.id);
+    if (alerts.length > 0) {
+      client.emit('student_alerts_snapshot', alerts);
     }
   }
 
@@ -118,7 +127,103 @@ export class TrackingGateway {
         `[BUS_MOVED] Bus ${data.busId} (Simulated: ${updateResult.isSimulated}) moved to Route ${data.routeId}`,
       );
       this.server.emit('bus_moved', updateResult);
+      this.emitStudentAlerts(updateResult);
     }
     return { status: 'success' };
+  }
+
+  @SubscribeMessage('register_student_alert')
+  async handleRegisterStudentAlert(
+    @MessageBody()
+    data: {
+      routeId: string;
+      routeName?: string;
+      startStopName: string;
+      endStopName: string;
+      triggerStopName: string;
+      triggerStopOrder: number;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const route = await this.prisma.route.findUnique({
+      where: { id: data.routeId },
+      include: {
+        stops: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    if (!route || route.stops.length === 0) {
+      return { status: 'not_found' };
+    }
+
+    const normalize = (value: string) => value.toLowerCase().trim();
+    const startIndex = route.stops.findIndex(
+      (stop) => normalize(stop.name) === normalize(data.startStopName),
+    );
+    const endIndex = route.stops.findIndex(
+      (stop) => normalize(stop.name) === normalize(data.endStopName),
+    );
+    const triggerIndex = route.stops.findIndex(
+      (stop) => normalize(stop.name) === normalize(data.triggerStopName),
+    );
+
+    if (startIndex <= 0 || endIndex <= startIndex || triggerIndex !== startIndex - 1) {
+      return { status: 'invalid_route_selection' };
+    }
+
+    const triggerStop = route.stops[triggerIndex];
+    const alert = this.studentAlertService.registerAlert(client.id, {
+      routeId: route.id,
+      routeName: route.name,
+      startStopName: data.startStopName,
+      endStopName: data.endStopName,
+      triggerStopName: triggerStop.name,
+      triggerStopOrder: triggerStop.order,
+    });
+
+    client.emit('student_alerts_snapshot', this.studentAlertService.getAlerts(client.id));
+
+    return { status: 'registered', alert };
+  }
+
+  @SubscribeMessage('clear_student_alert')
+  handleClearStudentAlert(
+    @MessageBody() data: { alertId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const cleared = this.studentAlertService.clearAlert(client.id, data.alertId);
+    client.emit('student_alerts_snapshot', this.studentAlertService.getAlerts(client.id));
+
+    return { status: cleared ? 'cleared' : 'not_found' };
+  }
+
+  handleDisconnect(client: Socket) {
+    this.studentAlertService.clearSocket(client.id);
+  }
+
+  private emitStudentAlerts(busUpdate: {
+    busId: string;
+    routeId: string;
+    routeName?: string;
+    currentStop?: string | null;
+    nearestStop?: string | null;
+    nextStop?: string | null;
+    nextStopEtaMinutes?: number | null;
+    isSimulated?: boolean;
+    isCrowdsourced?: boolean;
+    plateNumber?: string;
+  }) {
+    const triggers = this.studentAlertService.evaluateBusUpdate(busUpdate);
+
+    for (const trigger of triggers) {
+      this.server.to(trigger.socketId).emit('student_alert_triggered', {
+        alert: trigger.alert,
+        bus: busUpdate,
+        message: trigger.message,
+        etaMinutes: trigger.arrivalEtaMinutes,
+      });
+    }
   }
 }
