@@ -174,7 +174,7 @@ export class ClusteringService {
     // 2. Radius + speed clustering
     const CLUSTER_RADIUS_METERS = 45;
     const SPEED_TOLERANCE_KMH = 6;
-    const MIN_STUDENTS_FOR_BUS = 5;
+    const MIN_STUDENTS_FOR_BUS = 1; // TODO: Change back to 5 tomorrow for real-time testing
 
     const clusters: StudentLocation[][] = [];
     const visited = new Set<string>();
