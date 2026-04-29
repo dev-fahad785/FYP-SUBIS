@@ -60,16 +60,53 @@ $ npm run test:cov
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+For AWS, the cleanest setup for this project is:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+- `ECS Fargate` for the NestJS API.
+- `RDS PostgreSQL` for the database.
+- `ECR` for the container image.
+- `ALB` in front of ECS so the app is reachable over HTTPS.
+
+### 1. Build and push the API image
 
 ```bash
-$ npm install -g mau
-$ mau deploy
+docker build -t subis-backend ./backend
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Push the image to ECR, then point your ECS task definition at that image.
+
+### 2. Create the database
+
+Create an `RDS PostgreSQL` instance in private subnets and allow inbound traffic only from the ECS service security group. Use the RDS connection string as `DATABASE_URL`.
+
+### 3. Configure the ECS task
+
+Set these environment variables in the task definition or in AWS Secrets Manager:
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `FRONTEND_ORIGIN`
+- `EMAIL_USER`
+- `EMAIL_PASS`
+- `PORT=3001`
+
+The app exposes `GET /`, so that can be used as the load balancer health check path.
+
+### 4. Run migrations
+
+Run Prisma migrations as a one-off ECS task or as a CI/CD step before the service is updated:
+
+```bash
+npx prisma migrate deploy
+```
+
+### 5. Deploy the service
+
+Use the same image for the ECS service, expose container port `3001`, and attach it to the ALB target group. After deployment, verify the root endpoint and a few authenticated routes.
+
+### Local env example
+
+Copy `.env.example` to `.env` for local development and adjust the values for your machine or AWS resources.
 
 ## Resources
 
