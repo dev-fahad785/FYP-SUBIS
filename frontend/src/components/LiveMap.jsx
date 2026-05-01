@@ -4,6 +4,8 @@ import AlarmPopup from './AlarmPopup';
 import TransitMap from './TransitMap';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const DEFAULT_CENTER = [29.3783, 71.7738];
+const DEFAULT_ZOOM = 14;
 
 function getRouteColor(index) {
   const palette = ['#3B82F6', '#F59E42', '#10B981', '#F43F5E', '#A78BFA', '#FBBF24', '#6366F1'];
@@ -18,6 +20,8 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
   const [selectedBusId, setSelectedBusId] = useState('');
   const [status, setStatus] = useState('Connecting to live bus updates...');
   const [mode, setMode] = useState('simulated'); // 'simulated' or 'real'
+  const [mapCenter, setMapCenter] = useState(DEFAULT_CENTER);
+  const [mapZoom, setMapZoom] = useState(DEFAULT_ZOOM);
   const [searchStartStop, setSearchStartStop] = useState('');
   const [searchEndStop, setSearchEndStop] = useState('');
   const [searchResults, setSearchResults] = useState(null);
@@ -351,6 +355,31 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
     console.log(selectedBus)
   };
 
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) {
+      setStatus('Geolocation is not supported in this browser.');
+      return;
+    }
+
+    setStatus('Locating you on the map...');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setMapCenter([position.coords.latitude, position.coords.longitude]);
+        setMapZoom(16);
+        setStatus('Centered on your location.');
+      },
+      () => {
+        setStatus('Unable to access your location right now.');
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 10000,
+      },
+    );
+  };
+
   const handleSearchBuses = async () => {
     if (!searchStartStop.trim() || !searchEndStop.trim()) {
       alert('Please enter both start and end stop names');
@@ -384,331 +413,280 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
     setSearchEndStop('');
   };
 
-  const requestBrowserNotificationPermission = async () => {
-    if (typeof Notification === 'undefined') {
-      return 'unsupported';
+  // Log when mode changes or buses are displayed
+  useMemo(() => {
+    console.log(
+      `[FRONTEND_DISPLAY] Mode: ${mode.toUpperCase()} | Showing ${visibleBuses.length} buses | ${visibleStudents.length} students`,
+    );
+    if (mode === 'real') {
+      console.log(`[FRONTEND_DISPLAY] Real mode buses: ${visibleBuses.map(b => `${b.busId}(P:${b.probabilityScore || 'N/A'}%)`).join(', ') || 'None'}`);
     }
+  }, [mode, visibleBuses, visibleStudents]);
 
-    if (Notification.permission === 'granted') {
-      return 'granted';
-    }
-
-    return Notification.requestPermission();
-  };
-
-  const handleClearAlert = (alertId) => {
-    socketRef.current?.emit('clear_student_alert', { alertId });
-    setActiveAlerts((current) => current.filter((alert) => alert.id !== alertId));
-  };
-
-  const ringingBusId = Object.keys(activeAlarms)[0] || '';
-  const ringingBus = ringingBusId ? buses[ringingBusId] ?? null : null;
-  const ringingStartStopName = ringingBusId ? armedBuses[ringingBusId] ?? '' : '';
-  const ringingEtaMinutes = ringingBus && ringingStartStopName
-    ? getEtaToStartStopMinutes(ringingBus)
+  const selectedBusDetails = selectedBus
+    ? {
+        title: selectedBus.plateNumber || selectedBus.busId || selectedBus.id,
+        route: selectedBus.routeName || selectedBus.routeId || 'Unknown route',
+        stop: selectedBus.currentStop || 'Between stops',
+        nextStop: selectedBus.nextStop || selectedBus.nearestStop || 'Not available',
+        eta:
+          typeof selectedBus.nextStopEtaMinutes === 'number'
+            ? `${selectedBus.nextStopEtaMinutes} min`
+            : 'Not available',
+      }
     : null;
-  const ringingEtaText = typeof ringingEtaMinutes === 'number' ? `${ringingEtaMinutes} min` : 'unknown ETA';
 
   return (
-    <div className="student-map-layout">
-      <AlarmPopup
-        open={Boolean(ringingBusId)}
-        busName={ringingBus?.plateNumber || ringingBus?.busId || 'This bus'}
-        stopName={ringingStartStopName || 'your stop'}
-        etaText={ringingEtaText}
-        onStopAlarm={() => stopAlarmForBus(ringingBusId)}
-      />
-      <div className="map-toolbar">
-        <div>
-          <h3>Live bus map</h3>
-          <p>{status}</p>
-        </div>
-        <div className={`data-mode-indicator ${mode === 'simulated' ? 'simulated' : 'realtime'}`}>
-          <span className="mode-indicator-dot" />
-          {mode === 'simulated' ? 'Simulation mode' : 'Real-time mode'}
-        </div>
-        <div className="metric-card compact">
-          <span className="metric-label">Buses shown</span>
-          <strong>{visibleBuses.length}</strong>
-        </div>
-        <div className="metric-card compact">
-          <span className="metric-label">Students on map</span>
-          <strong>{visibleStudents.length}</strong>
-        </div>
-        <div className="mode-toggle" style={{ marginLeft: 'auto' }}>
-          <button
-            className={`mode-toggle-btn ${mode === 'simulated' ? 'active' : ''}`}
-            type="button"
-            onClick={() => setMode('simulated')}
-            aria-pressed={mode === 'simulated'}
-          >
-            Simulated
-          </button>
-          <button
-            className={`mode-toggle-btn ${mode === 'real' ? 'active' : ''}`}
-            type="button"
-            onClick={() => setMode('real')}
-            aria-pressed={mode === 'real'}
-          >
-            Real Time
-          </button>
-        </div>
-      </div>
-      <div className="student-layout-grid live-map-grid">
-        <div className={`map-frame dashboard-map-frame ${mode === 'simulated' ? 'simulation-active' : ''}`}>
-          {mode === 'simulated' && (
-            <div className="simulation-banner" role="status" aria-live="polite">
-              Simulation feed active: buses and students shown here are generated sample data.
-            </div>
-          )}
-          <TransitMap
-            routes={routesWithColor}
-            buses={visibleBuses}
-            students={visibleStudents}
-            onBusSelect={handleSelectBus}
-            highlightedBusIds={searchResults ? searchResults.buses.map(b => b.id || b.busId) : []}
-          />
-        </div>
-        <div className="panel bus-details-panel">
-          <div className="panel-header">
-            <h3>Search for Buses</h3>
+    <div
+      className="student-map-layout"
+      style={{
+        position: 'relative',
+        minHeight: 'calc(100dvh - 180px)',
+        overflow: 'hidden',
+        borderRadius: '16px',
+      }}
+    >
+      <div
+        className={`map-frame dashboard-map-frame ${mode === 'simulated' ? 'simulation-active' : ''}`}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '16px',
+        }}
+      >
+        {mode === 'simulated' && (
+          <div className="simulation-banner" role="status" aria-live="polite">
+            Simulation feed active: buses and students shown here are generated sample data.
           </div>
-          <div className="search-form">
-            <div className="form-group">
-              <label htmlFor="start-stop">Start Stop</label>
-              <input
-                id="start-stop"
-                type="text"
-                placeholder="e.g., Main Station"
-                value={searchStartStop}
-                onChange={(e) => setSearchStartStop(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearchBuses()}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="end-stop">End Stop</label>
-              <input
-                id="end-stop"
-                type="text"
-                placeholder="e.g., City Center"
-                value={searchEndStop}
-                onChange={(e) => setSearchEndStop(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearchBuses()}
-              />
-            </div>
-            <div className="form-actions">
-              <button
-                className="btn-primary"
-                onClick={handleSearchBuses}
-                disabled={searchLoading}
-              >
-                {searchLoading ? 'Searching...' : 'Search'}
-              </button>
-              {searchResults && (
-                <button className="btn-secondary" onClick={handleClearSearch}>
-                  Clear
-                </button>
-              )}
-            </div>
+        )}
+        <TransitMap
+          routes={routesWithColor}
+          buses={visibleBuses}
+          students={visibleStudents}
+          center={mapCenter}
+          zoom={mapZoom}
+          onBusSelect={handleSelectBus}
+          highlightedBusIds={searchResults ? searchResults.buses.map((b) => b.id || b.busId) : []}
+        />
+      </div>
+
+      <div
+        className="panel"
+        style={{
+          position: 'absolute',
+          top: '16px',
+          left: '16px',
+          right: '16px',
+          zIndex: 20,
+          gap: '12px',
+          padding: '16px',
+          backdropFilter: 'blur(14px)',
+          background: 'rgba(8, 13, 24, 0.78)',
+          maxWidth: 'min(820px, calc(100% - 32px))',
+        }}
+      >
+        <div className="panel-header" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Live bus map</h3>
+            <p>{status}</p>
+          </div>
+          <div className={`data-mode-indicator ${mode === 'simulated' ? 'simulated' : 'realtime'}`}>
+            <span className="mode-indicator-dot" />
+            {mode === 'simulated' ? 'Simulation mode' : 'Real-time mode'}
+          </div>
+        </div>
+
+        <div className="actions" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div className="mode-toggle" style={{ display: 'inline-flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              className={`mode-toggle-btn ${mode === 'simulated' ? 'active' : ''}`}
+              type="button"
+              onClick={() => setMode('simulated')}
+              aria-pressed={mode === 'simulated'}
+            >
+              Simulated
+            </button>
+            <button
+              className={`mode-toggle-btn ${mode === 'real' ? 'active' : ''}`}
+              type="button"
+              onClick={() => setMode('real')}
+              aria-pressed={mode === 'real'}
+            >
+              Real Time
+            </button>
           </div>
 
-          {activeAlerts.length > 0 && (
-            <div className="panel-subsection">
-              <div className="panel-header">
-                <h4>Active alerts</h4>
-              </div>
+          <div className="metric-card compact" style={{ padding: '10px 12px' }}>
+            <span className="metric-label">Buses shown</span>
+            <strong>{visibleBuses.length}</strong>
+          </div>
+          <div className="metric-card compact" style={{ padding: '10px 12px' }}>
+            <span className="metric-label">Students on map</span>
+            <strong>{visibleStudents.length}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="panel"
+        style={{
+          position: 'absolute',
+          top: '132px',
+          right: '16px',
+          zIndex: 20,
+          width: 'min(360px, calc(100% - 32px))',
+          padding: '16px',
+          backdropFilter: 'blur(14px)',
+          background: 'rgba(8, 13, 24, 0.78)',
+          maxHeight: 'calc(100dvh - 260px)',
+          overflow: 'auto',
+        }}
+      >
+        <div className="panel-header">
+          <h3 style={{ margin: 0 }}>Search for buses</h3>
+        </div>
+        <div className="search-form">
+          <div className="form-group">
+            <label htmlFor="start-stop">Start Stop</label>
+            <input
+              id="start-stop"
+              type="text"
+              placeholder="e.g., Main Station"
+              value={searchStartStop}
+              onChange={(e) => setSearchStartStop(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearchBuses()}
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="end-stop">End Stop</label>
+            <input
+              id="end-stop"
+              type="text"
+              placeholder="e.g., City Center"
+              value={searchEndStop}
+              onChange={(e) => setSearchEndStop(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearchBuses()}
+            />
+          </div>
+          <div className="form-actions">
+            <button className="btn-primary" onClick={handleSearchBuses} disabled={searchLoading}>
+              {searchLoading ? 'Searching...' : 'Search'}
+            </button>
+            {searchResults && (
+              <button className="btn-secondary" onClick={handleClearSearch}>
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {searchResults && (
+          <div className="search-results">
+            <div className="results-header">
+              <h4>{searchResults.message}</h4>
+            </div>
+            {searchResults.buses.length > 0 ? (
               <div className="buses-list">
-                {activeAlerts.map((alert) => (
-                  <div key={alert.id} className="bus-item">
+                {searchResults.buses.map((bus) => (
+                  <div
+                    key={bus.id || bus.busId}
+                    className={`bus-item ${selectedBusId === (bus.busId || bus.id) ? 'active' : ''}`}
+                    onClick={() => handleSelectBus(bus)}
+                  >
                     <div className="bus-item-header">
-                      <strong>{alert.routeName}</strong>
-                      <span className="route-badge">{alert.startStopName}</span>
-                    </div>
-                    <div className="bus-item-info">
-                      <span>Trigger: {alert.triggerStopName}</span>
-                      <span>
-                        {alert.triggeredBusIds?.length > 0
-                          ? `Triggered for ${alert.triggeredBusIds.length} bus trip(s)`
-                          : 'Waiting'}
+                      <strong>{bus.plateNumber || bus.busId}</strong>
+                      <span className="route-badge" style={{ backgroundColor: bus.routeColor }}>
+                        {bus.routeName}
                       </span>
                     </div>
-                    <div className="form-actions">
-                      <button className="btn-secondary" type="button" onClick={() => handleClearAlert(alert.id)}>
-                        Clear
-                      </button>
+                    <div className="bus-item-info">
+                      {bus.currentStop && <span>📍 {bus.currentStop}</span>}
+                      {bus.speed && <span>⚡ {Math.round(bus.speed)} km/h</span>}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="panel-empty">No buses found for this route</div>
+            )}
+          </div>
+        )}
+      </div>
 
-          {alertFeed.length > 0 && (
-            <div className="panel-subsection">
-              <div className="panel-header">
-                <h4>Latest alert</h4>
-              </div>
-              <div className="banner success">
-                {alertFeed[0].message} ETA to start stop: {alertFeed[0].etaMinutes ?? 'unknown'} min.
-              </div>
-            </div>
-          )}
+      <button
+        type="button"
+        onClick={handleLocateMe}
+        className="primary"
+        style={{
+          position: 'absolute',
+          right: '16px',
+          bottom: '136px',
+          zIndex: 25,
+          borderRadius: '999px',
+          padding: '12px 16px',
+          boxShadow: '0 12px 28px rgba(0, 0, 0, 0.35)',
+        }}
+      >
+        📍 Locate Me
+      </button>
 
-          {searchResults && (
-            <div className="search-results">
-              <div className="results-header">
-                <h4>{searchResults.message}</h4>
-              </div>
-              {searchResults.buses.length > 0 ? (
-                <div className="buses-list">
-                  {searchResults.buses.map((bus) => (
-                    <div
-                      key={getBusId(bus)}
-                      className={`bus-item ${selectedBusId === getBusId(bus) ? 'active' : ''}`}
-                      onClick={() => handleSelectBus(bus)}
-                    >
-                      <div className="bus-item-header">
-                        <strong>{bus.plateNumber || getBusId(bus)}</strong>
-                        <span className="route-badge" style={{ backgroundColor: bus.routeColor }}>
-                          {bus.routeName}
-                        </span>
-                      </div>
-                      <div className="bus-item-info">
-                        {bus.currentStop && <span>📍 {bus.currentStop}</span>}
-                        <span>
-                          ⏱ ETA to {searchStartStop || 'start stop'}:{' '}
-                          {getEtaToStartStopMinutes(bus) !== null
-                            ? `${getEtaToStartStopMinutes(bus)} min`
-                            : 'Not available'}
-                        </span>
-                        {bus.speed && <span>⚡ {Math.round(bus.speed)} km/h</span>}
-                        <div style={{ marginLeft: '8px' }}>
-                          {(() => {
-                            const id = getBusId(bus);
-                            const armed = Boolean(armedBuses[id]);
-                            const alarming = Boolean(activeAlarms[id]);
-                            return (
-                              <>
-                                <button
-                                  className={`btn-${armed ? 'danger' : 'primary'}`}
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); toggleArmForBus(bus); }}
-                                >
-                                  {armed ? 'Armed' : 'Set alert'}
-                                </button>
-                                {alarming && (
-                                  <button
-                                    className="btn-secondary"
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); stopAlarmForBus(id); }}
-                                    style={{ marginLeft: '6px' }}
-                                  >
-                                    Stop alarm
-                                  </button>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="panel-empty">No buses found for this route</div>
-              )}
-            </div>
+      <div
+        className="panel"
+        style={{
+          position: 'absolute',
+          left: '16px',
+          right: '16px',
+          bottom: '16px',
+          zIndex: 30,
+          minHeight: '120px',
+          padding: '16px 18px',
+          backdropFilter: 'blur(14px)',
+          background: 'rgba(8, 13, 24, 0.9)',
+          borderRadius: '20px',
+        }}
+      >
+        <div className="panel-header" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Bus details</h3>
+            <p style={{ marginTop: '6px' }}>Select a bus to see details</p>
+          </div>
+          {selectedBus && (
+            <button className="close-btn" type="button" onClick={() => setSelectedBusId('')}>
+              ✕
+            </button>
           )}
         </div>
 
-        {selectedBus && (
-          <div className="panel bus-details-panel">
-            <div className="panel-header">
-              <h3>Bus Details</h3>
-              <button className="close-btn" onClick={() => setSelectedBusId('')}>✕</button>
+        {selectedBusDetails ? (
+          <div className="bus-details-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+            <div className="bus-details-row">
+              <span className="detail-label">Bus</span>
+              <strong>{selectedBusDetails.title}</strong>
             </div>
-            <div className="bus-details-grid">
-              <div className="bus-details-header-row">
-                <strong>{selectedBus.plateNumber || selectedBus.busId || selectedBus.id}</strong>
-                {selectedBus.simulated && <span className="bus-badge simulated">Simulated</span>}
-                {!selectedBus.simulated && <span className="bus-badge live">Real-time</span>}
-              </div>
-              <div className="bus-details-row">
-                <span className="detail-label">Route</span>
-                <strong>{selectedBus.routeName || selectedBus.routeId || 'Unknown route'}</strong>
-              </div>
-              <div className="bus-details-row">
-                <span className="detail-label">Current stop</span>
-                <strong>{selectedBus.currentStop || 'Between stops'}</strong>
-              </div>
-              <div className="bus-details-row">
-                <span className="detail-label">Next stop</span>
-                <strong>{selectedBus.nextStop || selectedBus.nearestStop || 'Not available'}</strong>
-              </div>
-              <div className="bus-details-row">
-                <span className="detail-label">ETA to start stop</span>
-                <strong>
-                  {getEtaToStartStopMinutes(selectedBus) !== null
-                    ? `${getEtaToStartStopMinutes(selectedBus)} min`
-                    : 'Not available'}
-                </strong>
-              </div>
-              <div className="bus-details-row">
-                <span className="detail-label">ETA to next stop</span>
-                <strong>
-                  {typeof selectedBus.nextStopEtaMinutes === 'number'
-                    ? `${selectedBus.nextStopEtaMinutes} min`
-                    : 'Not available'}
-                </strong>
-              </div>
-              <div className="bus-details-row">
-                <span className="detail-label">Student alert</span>
-                <div>
-                  {(() => {
-                    const id = getBusId(selectedBus);
-                    const armed = Boolean(armedBuses[id]);
-                    const alarming = Boolean(activeAlarms[id]);
-                    return (
-                      <>
-                        <button
-                          className={`btn-${armed ? 'danger' : 'primary'}`}
-                          type="button"
-                          onClick={() => toggleArmForBus(selectedBus)}
-                        >
-                          {armed ? 'Armed' : 'Set alert'}
-                        </button>
-                        {alarming && (
-                          <button
-                            className="btn-secondary"
-                            type="button"
-                            onClick={() => stopAlarmForBus(id)}
-                            style={{ marginLeft: '8px' }}
-                          >
-                            Stop alarm
-                          </button>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-              <div className="bus-details-row">
-                <span className="detail-label">Speed</span>
-                <strong>{Math.round(selectedBus.speed || 0)} km/h</strong>
-              </div>
-              <div className="bus-details-row">
-                <span className="detail-label">Last update</span>
-                <strong>
-                  {selectedBus.lastUpdate
-                    ? new Date(selectedBus.lastUpdate).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                      })
-                    : 'Unknown'}
-                </strong>
-              </div>
+            <div className="bus-details-row">
+              <span className="detail-label">Route</span>
+              <strong>{selectedBusDetails.route}</strong>
             </div>
+            <div className="bus-details-row">
+              <span className="detail-label">Current stop</span>
+              <strong>{selectedBusDetails.stop}</strong>
+            </div>
+            <div className="bus-details-row">
+              <span className="detail-label">Next stop</span>
+              <strong>{selectedBusDetails.nextStop}</strong>
+            </div>
+            <div className="bus-details-row">
+              <span className="detail-label">ETA</span>
+              <strong>{selectedBusDetails.eta}</strong>
+            </div>
+            <div className="bus-details-row">
+              <span className="detail-label">Speed</span>
+              <strong>{Math.round(selectedBus?.speed || 0)} km/h</strong>
+            </div>
+          </div>
+        ) : (
+          <div className="panel-empty" style={{ minHeight: '56px' }}>
+            Select a bus to see details
           </div>
         )}
       </div>

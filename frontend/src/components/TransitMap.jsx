@@ -80,6 +80,20 @@ function ResizeMap() {
   return null;
 }
 
+function SyncView({ center, zoom }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!Array.isArray(center) || center.length !== 2) {
+      return;
+    }
+
+    map.setView(center, zoom, { animate: true });
+  }, [center, map, zoom]);
+
+  return null;
+}
+
 export default function TransitMap({
   routes = [],
   buses = [],
@@ -94,6 +108,7 @@ export default function TransitMap({
     <div className={`transit-map-shell ${className}`.trim()}>
       <MapContainer center={center} zoom={zoom} className="transit-map">
         <ResizeMap />
+        <SyncView center={center} zoom={zoom} />
         <TileLayer
           attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
