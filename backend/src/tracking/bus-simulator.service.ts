@@ -5,6 +5,7 @@ import { TrackingService } from './tracking.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClusteringService } from './clustering.service';
 import { IUB_ROUTES } from './simulator-data';
+import { StudentAlertService } from './student-alert.service';
 
 interface DemoStudent {
   id: string;
@@ -43,6 +44,13 @@ export class BusSimulatorService implements OnModuleInit {
 
   private readonly directBuses: SimulatedBusState[] = [
     {
+      busId: 'SIM_BUS_ROUTE_1',
+      routeId: 'ROUTE_1',
+      speed: 30,
+      segmentIndex: 0,
+      progress: 0.1,
+    },
+    {
       busId: 'SIM_BUS_ROUTE_2',
       routeId: 'ROUTE_2',
       speed: 34,
@@ -63,6 +71,13 @@ export class BusSimulatorService implements OnModuleInit {
       segmentIndex: 2,
       progress: 0.55,
     },
+    {
+      busId: 'SIM_BUS_ROUTE_5',
+      routeId: 'ROUTE_3',
+      speed: 25,
+      segmentIndex: 0,
+      progress: 0.05,
+    },
   ];
 
   private readonly crowdCarrier: SimulatedBusState = {
@@ -77,7 +92,8 @@ export class BusSimulatorService implements OnModuleInit {
     private readonly trackingService: TrackingService,
     private readonly trackingGateway: TrackingGateway,
     private readonly prisma: PrismaService,
-    private readonly clusteringService: ClusteringService
+    private readonly clusteringService: ClusteringService,
+    private readonly studentAlertService: StudentAlertService,
   ) {}
 
   async onModuleInit() {
@@ -122,6 +138,36 @@ export class BusSimulatorService implements OnModuleInit {
         ...updateResult,
         isSimulated: true,
         simulatedSource: 'direct_bus',
+      });
+      this.emitStudentAlerts({
+        ...updateResult,
+        isSimulated: true,
+        simulatedSource: 'direct_bus',
+      });
+    }
+  }
+
+  private emitStudentAlerts(busUpdate: {
+    busId: string;
+    routeId: string;
+    routeName?: string;
+    currentStop?: string | null;
+    nearestStop?: string | null;
+    nextStop?: string | null;
+    nextStopEtaMinutes?: number | null;
+    isSimulated?: boolean;
+    isCrowdsourced?: boolean;
+    plateNumber?: string;
+    simulatedSource?: string;
+  }) {
+    const triggers = this.studentAlertService.evaluateBusUpdate(busUpdate);
+
+    for (const trigger of triggers) {
+      this.trackingGateway.server.to(trigger.socketId).emit('student_alert_triggered', {
+        alert: trigger.alert,
+        bus: busUpdate,
+        message: trigger.message,
+        etaMinutes: trigger.arrivalEtaMinutes,
       });
     }
   }
