@@ -237,13 +237,34 @@ export class ClusteringService {
           avgSpeed
         );
 
-        const probabilityScore = Math.min(
+        // Base probability: start at 60, +8 per extra rider above minimum, clamped
+        let probabilityScore = Math.min(
           98,
           Math.max(
             60,
             Math.round(60 + (cluster.length - MIN_STUDENTS_FOR_BUS) * 8)
           )
         );
+
+        // Compute distance from cluster centroid to the matched route (meters)
+        const routePath = this.normalizePolyline(matchedRoute.polyline, matchedRoute.stops);
+        let nearestDistanceMeters = Number.POSITIVE_INFINITY;
+        for (const pt of routePath) {
+          const d = this.getDistanceMeters(avgLat, avgLng, pt[0], pt[1]);
+          if (d < nearestDistanceMeters) nearestDistanceMeters = d;
+        }
+        if (!isFinite(nearestDistanceMeters)) nearestDistanceMeters = 1e6;
+
+        // Apply a distance-based penalty: farther from the registered route -> lower confidence.
+        // Penalty: 1 percentage point per 10 meters away, capped at 30%. This is tunable.
+        const DISTANCE_PENALTY_PER_10M = 1; // percent per 10m
+        const DISTANCE_PENALTY_MAX = 30; // percent
+        const computedPenalty = Math.min(
+          DISTANCE_PENALTY_MAX,
+          Math.round(nearestDistanceMeters / 10) * DISTANCE_PENALTY_PER_10M
+        );
+
+        probabilityScore = Math.max(40, probabilityScore - computedPenalty);
 
         this.logger.log(
           `[CLUSTER_DETECTED] Bus: ${dynamicBusId} | Route: ${matchedRoute.id} | Students: ${cluster.length} | Probability: ${probabilityScore}% | Speed: ${avgSpeed.toFixed(1)} km/h`
