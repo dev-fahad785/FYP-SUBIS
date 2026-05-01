@@ -41,7 +41,7 @@ frontend/build/
 frontend/dist/
 
 # NestJS
-backend/dist/
+# backend/dist/
 backend/build/
 
 ################################
