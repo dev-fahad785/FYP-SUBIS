@@ -34,15 +34,17 @@ function BarChart({ points = [] }) {
   const maxValue = Math.max(...points.map((point) => point.total), 1);
 
   return (
-    <div className="chart-grid">
+    <div className="grid gap-2 grid-cols-4 sm:grid-cols-6 md:grid-cols-8">
       {points.map((point) => (
-        <div key={point.label} className="chart-bar-wrap">
-          <div
-            className="chart-bar"
-            style={{ height: `${Math.max((point.total / maxValue) * 100, point.total ? 12 : 4)}%` }}
-            title={`${point.label}: ${point.total}`}
-          />
-          <span>{point.label}</span>
+        <div key={point.label} className="flex flex-col items-center gap-2">
+          <div className="relative w-full h-32 bg-white/5 border border-white/10 rounded-lg flex items-end justify-center p-2">
+            <div
+              className="w-2 bg-gradient-to-t from-blue-500 to-blue-400 rounded-sm transition-all"
+              style={{ height: `${Math.max((point.total / maxValue) * 100, point.total ? 12 : 4)}%` }}
+              title={`${point.label}: ${point.total}`}
+            />
+          </div>
+          <span className="text-xs text-center text-slate-400 truncate w-full">{point.label}</span>
         </div>
       ))}
     </div>
@@ -526,32 +528,46 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
   };
 
   return (
-    <div className="admin-dashboard">
-      <div className="dashboard-header">
+    <div className="grid gap-4">
+      <div className="flex justify-between items-start gap-4 mb-2">
         <div>
-          <p className="eyebrow">SUBIS · Admin Console</p>
-          <h2>Welcome back, {currentUserName || 'Admin'}</h2>
-          <p className="lede">
+          <p className="text-xs uppercase tracking-widest text-slate-400 mb-2">SUBIS · Admin Console</p>
+          <h2 className="text-3xl font-bold text-slate-100 mb-2">Welcome back, {currentUserName || 'Admin'}</h2>
+          <p className="text-slate-400 text-sm">
             Monitor fleet activity, review telemetry, and keep route data current from a single workspace.
           </p>
         </div>
-        <button className="ghost" type="button" onClick={onLogout}>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="px-4 py-2 bg-white/5 border border-white/10 text-slate-100 rounded-lg hover:bg-white/10 transition-colors font-medium"
+        >
           Log out
         </button>
       </div>
 
       {feedback.message && (
-        <div className={`banner ${feedback.type === 'error' ? 'error' : 'success'}`}>
+        <div
+          className={`rounded-lg border p-4 ${
+            feedback.type === 'error'
+              ? 'border-red-500/50 bg-red-900/30 text-red-200'
+              : 'border-green-500/50 bg-green-900/30 text-green-200'
+          }`}
+        >
           {feedback.message}
         </div>
       )}
 
-      <div className="tab-strip">
+      <div className="flex gap-3 flex-wrap">
         {Object.entries(tabLabels).map(([key, label]) => (
           <button
             key={key}
             type="button"
-            className={`tab-button ${activeTab === key ? 'active' : ''}`}
+            className={`px-4 py-2 rounded-full border transition-colors font-medium text-sm ${
+              activeTab === key
+                ? 'bg-blue-500/20 border-blue-400/40 text-blue-200'
+                : 'border-white/10 bg-white/5 text-slate-100 hover:bg-white/10'
+            }`}
             onClick={() => setActiveTab(key)}
           >
             {label}
@@ -560,87 +576,109 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
       </div>
 
       {activeTab === 'overview' && (
-        <section className="dashboard-section">
-          <div className="metrics-grid">
-            <article className="metric-card">
-              <span className="metric-label">Active buses</span>
-              <strong>{overview?.summary?.activeBusCount ?? '--'}</strong>
+        <section className="grid gap-4">
+          <div className="grid gap-4 grid-cols-4">
+            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-4 grid gap-3">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Active buses</span>
+              <strong className="text-2xl text-slate-100">{overview?.summary?.activeBusCount ?? '--'}</strong>
             </article>
-            <article className="metric-card">
-              <span className="metric-label">Active routes</span>
-              <strong>{overview?.summary?.routeCount ?? '--'}</strong>
+            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-4 grid gap-3">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Active routes</span>
+              <strong className="text-2xl text-slate-100">{overview?.summary?.routeCount ?? '--'}</strong>
             </article>
-            <article className="metric-card">
-              <span className="metric-label">Configured stops</span>
-              <strong>{overview?.summary?.stopCount ?? '--'}</strong>
+            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-4 grid gap-3">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Configured stops</span>
+              <strong className="text-2xl text-slate-100">{overview?.summary?.stopCount ?? '--'}</strong>
             </article>
-            <article className="metric-card">
-              <span className="metric-label">Telemetry records</span>
-              <strong>{overview?.summary?.telemetryCount ?? '--'}</strong>
+            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-4 grid gap-3">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Telemetry records</span>
+              <strong className="text-2xl text-slate-100">{overview?.summary?.telemetryCount ?? '--'}</strong>
             </article>
           </div>
 
-          <div className="dashboard-grid two-column">
-            <div className="panel large flex flex-col">
-              <div className="panel-header">
+          <div className="grid gap-4 grid-cols-[1.7fr_1fr]">
+            <div className="rounded-2xl border border-white/10 bg-slate-900/90 p-4 min-h-96 flex flex-col">
+              <div className="flex justify-between items-start gap-4 mb-4">
                 <div>
-                  <h3>Operations map</h3>
-                  <p>All active buses and campus routes in a single live view.</p>
+                  <h3 className="text-lg font-bold text-slate-100 m-0">Operations map</h3>
+                  <p className="text-sm text-slate-400 m-0 mt-1">All active buses and campus routes in a single live view.</p>
                 </div>
-                <button className="ghost" type="button" onClick={loadOverview}>
+                <button
+                  type="button"
+                  onClick={loadOverview}
+                  className="px-4 py-2 bg-white/5 border border-white/10 text-slate-100 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium"
+                >
                   Refresh
                 </button>
               </div>
 
               {loadingState.overview ? (
-                <div className="panel-empty">Loading live fleet overview...</div>
+                <div className="flex-1 grid place-items-center text-center text-slate-400 border border-dashed border-white/10 rounded-lg">
+                  Loading live fleet overview...
+                </div>
               ) : (
-                <div className="map-frame dashboard-map-frame">
+                <div className="flex-1 w-full rounded-lg overflow-hidden border border-white/10 bg-slate-950">
                   <TransitMap routes={overviewMapRoutes} buses={overviewMapBuses} />
                 </div>
               )}
             </div>
 
-            <div className="panel stack">
-              <div className="panel-header">
-                <div>
-                  <h3>Active alerts</h3>
-                  <p>Stale bus pings and crowd conditions needing attention.</p>
+            <div className="rounded-2xl border border-white/10 bg-slate-900/90 p-4 grid gap-4 grid-rows-[auto_1fr]">
+              <div>
+                <div className="mb-3">
+                  <h3 className="text-lg font-bold text-slate-100 m-0">Active alerts</h3>
+                  <p className="text-sm text-slate-400 m-0 mt-1">Stale bus pings and crowd conditions needing attention.</p>
                 </div>
-              </div>
-              <div className="alert-list">
-                {(overview?.alerts || []).length === 0 && <div className="panel-empty">No active alerts.</div>}
-                {(overview?.alerts || []).map((alert, index) => (
-                  <article key={`${alert.type}-${index}`} className={`alert-card severity-${alert.severity}`}>
-                    <strong>{alert.title}</strong>
-                    <p>{alert.description}</p>
-                  </article>
-                ))}
+                <div className="grid gap-2 max-h-48 overflow-y-auto">
+                  {(overview?.alerts || []).length === 0 ? (
+                    <div className="text-center text-slate-400 text-sm py-4">No active alerts.</div>
+                  ) : (
+                    (overview?.alerts || []).map((alert, index) => (
+                      <article
+                        key={`${alert.type}-${index}`}
+                        className={`rounded-lg border p-3 ${
+                          alert.severity === 'high'
+                            ? 'border-red-500/50 bg-red-900/30 text-red-200'
+                            : alert.severity === 'medium'
+                              ? 'border-amber-500/50 bg-amber-900/30 text-amber-200'
+                              : 'border-blue-500/50 bg-blue-900/30 text-blue-200'
+                        }`}
+                      >
+                        <strong className="block text-sm">{alert.title}</strong>
+                        <p className="text-xs mt-1 m-0">{alert.description}</p>
+                      </article>
+                    ))
+                  )}
+                </div>
               </div>
 
-              <div className="panel-subsection">
-                <div className="panel-header">
-                  <div>
-                    <h3>Crowded stops</h3>
-                    <p>Jump straight into route editing from the hotspots list.</p>
-                  </div>
+              <div className="border-t border-white/10 pt-4">
+                <div className="mb-3">
+                  <h3 className="text-lg font-bold text-slate-100 m-0">Crowded stops</h3>
+                  <p className="text-sm text-slate-400 m-0 mt-1">Jump straight into route editing from the hotspots list.</p>
                 </div>
-                <div className="crowd-stop-list">
-                  {(overview?.crowdStops || []).map((stop) => {
-                    const fullStop = allStops.find((item) => item.id === stop.id);
-                    return (
-                      <button
-                        type="button"
-                        key={stop.id}
-                        className="crowd-stop-card"
-                        onClick={() => populateStopForm(fullStop)}
-                      >
-                        <span>{stop.name}</span>
-                        <strong>{stop.routeName}</strong>
-                        <em>{stop.crowdLevel}</em>
-                      </button>
-                    );
-                  })}
+                <div className="grid gap-2 max-h-32 overflow-y-auto">
+                  {(overview?.crowdStops || []).length === 0 ? (
+                    <div className="text-center text-slate-400 text-sm py-2">No crowded stops.</div>
+                  ) : (
+                    (overview?.crowdStops || []).map((stop) => {
+                      const fullStop = allStops.find((item) => item.id === stop.id);
+                      return (
+                        <button
+                          type="button"
+                          key={stop.id}
+                          onClick={() => populateStopForm(fullStop)}
+                          className="p-2 text-left bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors text-sm"
+                        >
+                          <span className="block text-slate-100 font-medium">{stop.name}</span>
+                          <div className="flex justify-between gap-2 mt-1 text-xs text-slate-400">
+                            <span>{stop.routeName}</span>
+                            <span>{stop.crowdLevel}</span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
