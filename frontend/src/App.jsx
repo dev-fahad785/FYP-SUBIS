@@ -1,3 +1,4 @@
+import React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import AdminDashboard from './components/AdminDashboard';
 import LiveMap from './components/LiveMap';
@@ -408,7 +409,7 @@ function App() {
               <div className="home-header">
                 <div>
                   <div className="pill">Live Map</div>
-                  <h2>Welcome{currentUserEmail ? `, ${currentUserEmail}` : ''}!</h2>
+                  <h2 className='bg-red-900'>Welcome{currentUserEmail ? `, ${currentUserEmail}` : ''}!</h2>
                 </div>
                 <button className="ghost" type="button" onClick={handleLogout}>
                   Log out
