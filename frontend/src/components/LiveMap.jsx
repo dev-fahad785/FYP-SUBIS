@@ -437,25 +437,11 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
     : null;
 
   return (
-    <div
-      className="student-map-layout"
-      style={{
-        position: 'relative',
-        minHeight: 'calc(100dvh - 180px)',
-        overflow: 'hidden',
-        borderRadius: '16px',
-      }}
-    >
-      <div
-        className={`map-frame dashboard-map-frame ${mode === 'simulated' ? 'simulation-active' : ''}`}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          borderRadius: '16px',
-        }}
-      >
+    <div className="relative w-full h-full rounded-2xl overflow-hidden bg-slate-950">
+      {/* Map Frame */}
+      <div className="absolute inset-0 rounded-2xl overflow-hidden bg-slate-900/85 border border-white/10">
         {mode === 'simulated' && (
-          <div className="simulation-banner" role="status" aria-live="polite">
+          <div className="absolute top-3 left-3 z-500 px-3 py-2 rounded-full border border-orange-500/60 bg-orange-900/80 text-orange-200 text-xs font-bold tracking-tight shadow-inner" role="status" aria-live="polite">
             Simulation feed active: buses and students shown here are generated sample data.
           </div>
         )}
@@ -470,36 +456,23 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
         />
       </div>
 
-      <div
-        className="panel"
-        style={{
-          position: 'absolute',
-          top: '16px',
-          left: '16px',
-          right: '16px',
-          zIndex: 20,
-          gap: '12px',
-          padding: '16px',
-          backdropFilter: 'blur(14px)',
-          background: 'rgba(8, 13, 24, 0.78)',
-          maxWidth: 'min(820px, calc(100% - 32px))',
-        }}
-      >
-        <div className="panel-header" style={{ alignItems: 'flex-start' }}>
+      {/* Top Panel - Controls */}
+      <div className="absolute top-4 left-4 right-4 z-20 rounded-2xl border border-white/10 bg-slate-900/85 p-4 backdrop-blur-xl max-w-xl">
+        <div className="flex items-start justify-between gap-4 mb-3">
           <div>
-            <h3 style={{ margin: 0 }}>Live bus map</h3>
-            <p>{status}</p>
+            <h3 className="m-0 text-base font-semibold text-slate-100">Live bus map</h3>
+            <p className="m-0 text-sm text-slate-400">{status}</p>
           </div>
-          <div className={`data-mode-indicator ${mode === 'simulated' ? 'simulated' : 'realtime'}`}>
-            <span className="mode-indicator-dot" />
+          <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-widest ${mode === 'simulated' ? 'bg-orange-500/15 border border-orange-500/50 text-amber-300' : 'bg-green-500/15 border border-green-500/50 text-green-300'}`}>
+            <span className={`w-2 h-2 rounded-full ${mode === 'simulated' ? 'bg-orange-500' : 'bg-green-500'} animate-pulse`} />
             {mode === 'simulated' ? 'Simulation mode' : 'Real-time mode'}
           </div>
         </div>
 
-        <div className="actions" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <div className="mode-toggle" style={{ display: 'inline-flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="inline-flex items-center gap-1.5 p-1 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm">
             <button
-              className={`mode-toggle-btn ${mode === 'simulated' ? 'active' : ''}`}
+              className={`px-3.5 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-200 ${mode === 'simulated' ? 'bg-gradient-to-r from-blue-500 to-blue-600 border-blue-400/75 text-slate-950 shadow-lg' : 'border-white/10 bg-white/5 text-slate-100 hover:bg-white/10'}`}
               type="button"
               onClick={() => setMode('simulated')}
               aria-pressed={mode === 'simulated'}
@@ -507,7 +480,7 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
               Simulated
             </button>
             <button
-              className={`mode-toggle-btn ${mode === 'real' ? 'active' : ''}`}
+              className={`px-3.5 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-200 ${mode === 'real' ? 'bg-gradient-to-r from-blue-500 to-blue-600 border-blue-400/75 text-slate-950 shadow-lg' : 'border-white/10 bg-white/5 text-slate-100 hover:bg-white/10'}`}
               type="button"
               onClick={() => setMode('real')}
               aria-pressed={mode === 'real'}
@@ -516,38 +489,25 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
             </button>
           </div>
 
-          <div className="metric-card compact" style={{ padding: '10px 12px' }}>
-            <span className="metric-label">Buses shown</span>
-            <strong>{visibleBuses.length}</strong>
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-800 to-slate-900 p-2 grid gap-1">
+            <span className="text-xs uppercase tracking-widest text-slate-400">Buses shown</span>
+            <strong className="text-base text-slate-100">{visibleBuses.length}</strong>
           </div>
-          <div className="metric-card compact" style={{ padding: '10px 12px' }}>
-            <span className="metric-label">Students on map</span>
-            <strong>{visibleStudents.length}</strong>
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-800 to-slate-900 p-2 grid gap-1">
+            <span className="text-xs uppercase tracking-widest text-slate-400">Students on map</span>
+            <strong className="text-base text-slate-100">{visibleStudents.length}</strong>
           </div>
         </div>
       </div>
 
-      <div
-        className="panel"
-        style={{
-          position: 'absolute',
-          top: '132px',
-          right: '16px',
-          zIndex: 20,
-          width: 'min(360px, calc(100% - 32px))',
-          padding: '16px',
-          backdropFilter: 'blur(14px)',
-          background: 'rgba(8, 13, 24, 0.78)',
-          maxHeight: 'calc(100dvh - 260px)',
-          overflow: 'auto',
-        }}
-      >
-        <div className="panel-header">
-          <h3 style={{ margin: 0 }}>Search for buses</h3>
+      {/* Right Panel - Search */}
+      <div className="absolute top-36 right-4 z-20 w-80 rounded-2xl border border-white/10 bg-slate-900/85 p-4 backdrop-blur-xl max-h-96 overflow-auto">
+        <div className="mb-4">
+          <h3 className="m-0 text-base font-semibold text-slate-100">Search for buses</h3>
         </div>
-        <div className="search-form">
-          <div className="form-group">
-            <label htmlFor="start-stop">Start Stop</label>
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <label htmlFor="start-stop" className="text-xs uppercase tracking-widest text-blue-300 font-semibold">Start Stop</label>
             <input
               id="start-stop"
               type="text"
@@ -555,10 +515,11 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
               value={searchStartStop}
               onChange={(e) => setSearchStartStop(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearchBuses()}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-base text-slate-100 transition-all duration-200 placeholder-slate-500 focus:outline-none focus:border-blue-400 focus:bg-blue-500/10"
             />
           </div>
-          <div className="form-group">
-            <label htmlFor="end-stop">End Stop</label>
+          <div className="grid gap-1.5">
+            <label htmlFor="end-stop" className="text-xs uppercase tracking-widest text-blue-300 font-semibold">End Stop</label>
             <input
               id="end-stop"
               type="text"
@@ -566,14 +527,22 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
               value={searchEndStop}
               onChange={(e) => setSearchEndStop(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearchBuses()}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-base text-slate-100 transition-all duration-200 placeholder-slate-500 focus:outline-none focus:border-blue-400 focus:bg-blue-500/10"
             />
           </div>
-          <div className="form-actions">
-            <button className="btn-primary" onClick={handleSearchBuses} disabled={searchLoading}>
+          <div className="flex gap-2 mt-1">
+            <button
+              className="flex-1 px-4 py-2.5 rounded-lg font-semibold border border-white/10 bg-gradient-to-r from-blue-500 to-blue-600 text-slate-950 transition-all hover:bg-white/10 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
+              onClick={handleSearchBuses}
+              disabled={searchLoading}
+            >
               {searchLoading ? 'Searching...' : 'Search'}
             </button>
             {searchResults && (
-              <button className="btn-secondary" onClick={handleClearSearch}>
+              <button
+                className="flex-1 px-4 py-2.5 rounded-lg font-semibold border border-white/10 bg-white/5 text-slate-100 transition-all hover:bg-white/10 hover:-translate-y-0.5"
+                onClick={handleClearSearch}
+              >
                 Clear
               </button>
             )}
@@ -581,25 +550,25 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
         </div>
 
         {searchResults && (
-          <div className="search-results">
-            <div className="results-header">
-              <h4>{searchResults.message}</h4>
+          <div className="grid gap-3 mt-2">
+            <div className="px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/30">
+              <h4 className="m-0 text-slate-100 text-sm font-semibold text-green-300">{searchResults.message}</h4>
             </div>
             {searchResults.buses.length > 0 ? (
-              <div className="buses-list">
+              <div className="grid gap-2 max-h-72 overflow-y-auto">
                 {searchResults.buses.map((bus) => (
                   <div
                     key={bus.id || bus.busId}
-                    className={`bus-item ${selectedBusId === (bus.busId || bus.id) ? 'active' : ''}`}
+                    className={`p-2.5 rounded-lg border transition-all cursor-pointer ${selectedBusId === (bus.busId || bus.id) ? 'bg-blue-500/20 border-blue-400/40' : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/15'}`}
                     onClick={() => handleSelectBus(bus)}
                   >
-                    <div className="bus-item-header">
-                      <strong>{bus.plateNumber || bus.busId}</strong>
-                      <span className="route-badge" style={{ backgroundColor: bus.routeColor }}>
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <strong className="text-sm text-slate-100">{bus.plateNumber || bus.busId}</strong>
+                      <span className="text-xs px-2 py-0.5 rounded-lg text-white font-semibold uppercase tracking-tight" style={{ backgroundColor: bus.routeColor }}>
                         {bus.routeName}
                       </span>
                     </div>
-                    <div className="bus-item-info">
+                    <div className="flex gap-3 text-xs text-blue-300">
                       {bus.currentStop && <span>📍 {bus.currentStop}</span>}
                       {bus.speed && <span>⚡ {Math.round(bus.speed)} km/h</span>}
                     </div>
@@ -607,85 +576,70 @@ export default function LiveMap({ userId = '', userName = 'Student' }) {
                 ))}
               </div>
             ) : (
-              <div className="panel-empty">No buses found for this route</div>
+              <div className="min-h-36 grid place-items-center text-center text-slate-400 border border-dashed border-white/10 rounded-2xl">
+                No buses found for this route
+              </div>
             )}
           </div>
         )}
       </div>
 
+      {/* Locate Button */}
       <button
         type="button"
         onClick={handleLocateMe}
-        className="primary"
-        style={{
-          position: 'absolute',
-          right: '16px',
-          bottom: '136px',
-          zIndex: 25,
-          borderRadius: '999px',
-          padding: '12px 16px',
-          boxShadow: '0 12px 28px rgba(0, 0, 0, 0.35)',
-        }}
+        className="absolute right-4 bottom-44 z-25 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-slate-950 font-bold rounded-full hover:-translate-y-0.5 transition-transform duration-100 disabled:opacity-60 shadow-lg hover:shadow-xl rounded-full"
       >
         📍 Locate Me
       </button>
 
-      <div
-        className="panel"
-        style={{
-          position: 'absolute',
-          left: '16px',
-          right: '16px',
-          bottom: '16px',
-          zIndex: 30,
-          minHeight: '120px',
-          padding: '16px 18px',
-          backdropFilter: 'blur(14px)',
-          background: 'rgba(8, 13, 24, 0.9)',
-          borderRadius: '20px',
-        }}
-      >
-        <div className="panel-header" style={{ alignItems: 'flex-start' }}>
+      {/* Bottom Panel - Bus Details */}
+      <div className="absolute left-4 right-4 bottom-4 z-30 min-h-32 rounded-2xl border border-white/10 bg-slate-900/90 p-4 backdrop-blur-xl">
+        <div className="flex items-start justify-between gap-4 mb-3">
           <div>
-            <h3 style={{ margin: 0 }}>Bus details</h3>
-            <p style={{ marginTop: '6px' }}>Select a bus to see details</p>
+            <h3 className="m-0 text-base font-semibold text-slate-100">Bus details</h3>
+            <p className="m-0 mt-1.5 text-sm text-slate-400">Select a bus to see details</p>
           </div>
           {selectedBus && (
-            <button className="close-btn" type="button" onClick={() => setSelectedBusId('')}>
+            <button
+              className="bg-none border-none text-slate-400 cursor-pointer text-lg p-0 transition-colors hover:text-slate-100"
+              type="button"
+              onClick={() => setSelectedBusId('')}
+            >
               ✕
             </button>
           )}
         </div>
 
         {selectedBusDetails ? (
-          <div className="bus-details-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-            <div className="bus-details-row">
-              <span className="detail-label">Bus</span>
+          <div className="grid gap-2.5 grid-cols-2">
+            <div className="flex justify-between items-center gap-4 border border-white/10 rounded-2xl bg-white/5 p-2.5">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Bus</span>
               <strong>{selectedBusDetails.title}</strong>
             </div>
-            <div className="bus-details-row">
-              <span className="detail-label">Route</span>
+            <div className="flex justify-between items-center gap-4 border border-white/10 rounded-2xl bg-white/5 p-2.5">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Route</span>
               <strong>{selectedBusDetails.route}</strong>
             </div>
-            <div className="bus-details-row">
-              <span className="detail-label">Current stop</span>
+            <div className="flex justify-between items-center gap-4 border border-white/10 rounded-2xl bg-white/5 p-2.5">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Current stop</span>
               <strong>{selectedBusDetails.stop}</strong>
             </div>
-            <div className="bus-details-row">
-              <span className="detail-label">Next stop</span>
+            <div className="flex justify-between items-center gap-4 border border-white/10 rounded-2xl bg-white/5 p-2.5">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Next stop</span>
               <strong>{selectedBusDetails.nextStop}</strong>
             </div>
-            <div className="bus-details-row">
-              <span className="detail-label">ETA</span>
+            <div className="flex justify-between items-center gap-4 border border-white/10 rounded-2xl bg-white/5 p-2.5">
+              <span className="text-xs uppercase tracking-widest text-slate-400">ETA</span>
               <strong>{selectedBusDetails.eta}</strong>
             </div>
-            <div className="bus-details-row">
-              <span className="detail-label">Speed</span>
+            <div className="flex justify-between items-center gap-4 border border-white/10 rounded-2xl bg-white/5 p-2.5">
+              <span className="text-xs uppercase tracking-widest text-slate-400">Speed</span>
               <strong>{Math.round(selectedBus?.speed || 0)} km/h</strong>
             </div>
           </div>
         ) : (
-          <div className="panel-empty" style={{ minHeight: '56px' }}>
+          <div className="min-h-14 grid place-items-center text-center text-slate-400">
             Select a bus to see details
           </div>
         )}
