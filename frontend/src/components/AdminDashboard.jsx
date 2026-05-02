@@ -687,19 +687,19 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
       )}
 
       {activeTab === 'routes' && (
-        <section className="dashboard-section">
-          <div className="dashboard-grid two-column">
-            <div className="panel stack">
-              <div className="panel-header">
+        <section className="grid gap-4">
+          <div className="grid gap-4 grid-cols-[1.7fr_1fr]">
+            <div className="rounded-2xl border border-white/10 bg-slate-900/90 p-4 grid gap-4">
+              <div className="flex justify-between items-start gap-4 mb-4">
                 <div>
                   <h3>Route manager</h3>
                   <p>Create routes, update route details, and adjust stop coordinates.</p>
                 </div>
               </div>
 
-              <form className="form compact-form" onSubmit={handleRouteCreate}>
-                <div className="form-row">
-                  <label className="field">
+              <form className="space-y-3" onSubmit={handleRouteCreate}>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="grid gap-1.5">
                     <span>Route name</span>
                     <input
                       type="text"
@@ -718,23 +718,23 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     />
                   </label>
                 </div>
-                <button className="primary" type="submit" disabled={loadingState.saving}>
+                <button className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg hover:scale-y-95 disabled:opacity-60 transition-all text-sm" type="submit" disabled={loadingState.saving}>
                   {loadingState.saving ? 'Saving…' : 'Create route'}
                 </button>
               </form>
 
-              <div className="route-list">
+              <div className="grid gap-2">
                 {routeOptions.map((route) => (
                   <button
                     key={route.id}
                     type="button"
-                    className={`route-list-item ${selectedRouteId === route.id ? 'active' : ''}`}
+                    className={`px-4 py-2 border rounded-lg text-left transition-all text-sm ${selectedRouteId === route.id ? 'bg-blue-500/20 border-blue-400/40 text-blue-200' : 'border-white/10 bg-white/5 text-slate-100 hover:bg-white/10'}`}
                     onClick={() => {
                       setSelectedRouteId(route.id);
                       setStopForm((current) => ({ ...current, routeId: route.id }));
                     }}
                   >
-                    <span className="route-color" style={{ backgroundColor: route.color || '#3B82F6' }} />
+                    <span className="inline-flex w-4 h-4 rounded-full border-2 border-white/20" style={{ backgroundColor: route.color || '#3B82F6' }} />
                     <div>
                       <strong>{route.name}</strong>
                       <p>{route.stops?.length || 0} stops</p>
@@ -743,14 +743,14 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                 ))}
               </div>
 
-              <div className="route-edit-card">
-                <div className="panel-header">
+              <div className="rounded-2xl border border-white/10 bg-slate-900/90 p-4 grid gap-4">
+                <div className="flex justify-between items-start gap-4 mb-4">
                   <div>
                     <h3>{selectedRoute?.name || 'Select a route'}</h3>
                     <p>Click the map to fill latitude and longitude for a stop.</p>
                   </div>
                   <button
-                    className="ghost danger"
+                    className="px-4 py-2 border border-red-500/50 bg-red-900/20 text-red-200 rounded-lg hover:bg-red-900/30 transition-colors text-sm font-medium disabled:opacity-60"
                     type="button"
                     onClick={handleRouteDelete}
                     disabled={loadingState.saving || !selectedRoute?.id}
@@ -760,7 +760,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                 </div>
 
                 <form className="form compact-form" onSubmit={handleStopSubmit}>
-                  <label className="field">
+                  <label className="grid gap-1.5">
                     <span>Route</span>
                     <select
                       value={stopForm.routeId}
@@ -776,14 +776,14 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     </select>
                   </label>
 
-                  <div className="location-search-block">
-                    <div className="panel-header">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start gap-4 mb-4">
                       <div>
                         <h3>Search location</h3>
                         <p>Find a place name and use its coordinates for this stop.</p>
                       </div>
                     </div>
-                    <div className="location-search-form">
+                    <div className="flex gap-2">
                       <input
                         type="text"
                         value={locationQuery}
@@ -796,7 +796,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                         }}
                       />
                       <button
-                        className="ghost"
+                        className="px-4 py-2 bg-white/5 border border-white/10 text-slate-100 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium"
                         type="button"
                         onClick={handleLocationSearch}
                         disabled={loadingState.geocoding}
@@ -805,13 +805,15 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                       </button>
                     </div>
                     {locationResults.length > 0 && (
-                      <div className="location-results">
+                      <div className="space-y-1.5">
                         {locationResults.map((result) => (
                           <button
                             key={result.id}
                             type="button"
-                            className={`location-result ${
-                              selectedLocationResultId === result.id ? 'active' : ''
+                            className={`px-3 py-2 border rounded-lg text-left transition-all text-sm ${
+                              selectedLocationResultId === result.id
+                                ? 'bg-blue-500/20 border-blue-400/40 text-blue-200'
+                                : 'border-white/10 bg-white/5 text-slate-100 hover:bg-white/10'
                             }`}
                             onClick={() => applyLocationResult(result)}
                           >
@@ -825,8 +827,8 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     )}
                   </div>
 
-                  <div className="form-row">
-                    <label className="field">
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="grid gap-1.5">
                       <span>Stop name</span>
                       <input
                         type="text"
@@ -836,7 +838,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                         required
                       />
                     </label>
-                    <label className="field">
+                    <label className="grid gap-1.5">
                       <span>Order</span>
                       <input
                         type="number"
@@ -848,8 +850,8 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     </label>
                   </div>
 
-                  <div className="form-row">
-                    <label className="field">
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="grid gap-1.5">
                       <span>Latitude</span>
                       <input
                         type="number"
@@ -861,7 +863,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                         required
                       />
                     </label>
-                    <label className="field">
+                    <label className="grid gap-1.5">
                       <span>Longitude</span>
                       <input
                         type="number"
@@ -875,9 +877,9 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     </label>
                   </div>
 
-                  <div className="actions">
+                    <div className="flex gap-3">
                     <button
-                      className="ghost"
+                      className="px-4 py-2 bg-white/5 border border-white/10 text-slate-100 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium"
                       type="button"
                       onClick={() => {
                         setStopForm((current) => ({
@@ -897,7 +899,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     </button>
                     {stopForm.stopId && (
                       <button
-                        className="ghost danger"
+                        className="px-4 py-2 border border-red-500/50 bg-red-900/20 text-red-200 rounded-lg hover:bg-red-900/30 transition-colors text-sm font-medium disabled:opacity-60"
                         type="button"
                         onClick={handleStopDelete}
                         disabled={loadingState.saving}
@@ -905,7 +907,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                         Delete stop
                       </button>
                     )}
-                    <button className="primary" type="submit" disabled={loadingState.saving}>
+                    <button className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg hover:scale-y-95 disabled:opacity-60 transition-all text-sm" type="submit" disabled={loadingState.saving}>
                       {stopForm.stopId ? 'Update stop' : 'Add stop'}
                     </button>
                   </div>
@@ -913,15 +915,15 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               </div>
             </div>
 
-            <div className="panel stack">
-              <div className="panel-header">
+            <div className="rounded-2xl border border-white/10 bg-slate-900/90 p-4 grid gap-4">
+              <div className="flex justify-between items-start gap-4 mb-4">
                 <div>
                   <h3>Route map editor</h3>
                   <p>Lightweight coordinate editing for the selected route.</p>
                 </div>
               </div>
 
-              <div className="map-frame dashboard-map-frame">
+              <div className="flex-1 w-full rounded-lg overflow-hidden border border-white/10 bg-slate-950">
                 <TransitMap
                   routes={selectedRouteMap}
                   buses={[]}
@@ -933,12 +935,12 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                 />
               </div>
 
-              <div className="stop-table">
+              <div className="space-y-1.5">
                 {(selectedRoute?.stops || []).map((stop) => (
                   <button
                     key={stop.id}
                     type="button"
-                    className="stop-row"
+                    className="px-3 py-2 text-left border border-white/10 rounded-lg text-slate-100 hover:bg-white/5 transition-colors text-sm"
                     onClick={() =>
                       populateStopForm({
                         ...stop,
@@ -953,7 +955,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                   </button>
                 ))}
                 {!selectedRoute?.stops?.length && (
-                  <div className="panel-empty">No stops configured for this route yet.</div>
+                  <div className="text-center text-slate-400 py-4 border border-dashed border-white/10 rounded-lg grid place-items-center">No stops configured for this route yet.</div>
                 )}
               </div>
             </div>
@@ -962,18 +964,18 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
       )}
 
       {activeTab === 'analytics' && (
-        <section className="dashboard-section">
-          <div className="dashboard-grid two-column">
-            <div className="panel large stack">
-              <div className="panel-header">
+        <section className="grid gap-4">
+          <div className="grid gap-4 grid-cols-[1.7fr_1fr]">
+            <div className="rounded-2xl border border-white/10 bg-slate-900/90 p-4 min-h-96 grid gap-4 grid-rows-[auto_1fr]">
+              <div className="flex justify-between items-start gap-4 mb-4">
                 <div>
                   <h3>Usage analytics</h3>
                   <p>Daily and weekly telemetry activity across the SUBIS platform.</p>
                 </div>
-                <div className="toggle-group">
+                <div className="flex gap-3">
                   <button
                     type="button"
-                    className={`ghost ${analyticsRange === 'daily' ? 'selected' : ''}`}
+                    className={`px-4 py-2 border rounded-lg font-medium text-sm transition-colors ${analyticsRange === 'daily' ? 'bg-blue-500/20 border-blue-400/40 text-blue-200' : 'border-white/10 bg-white/5 text-slate-100 hover:bg-white/10'}`}
                     onClick={() => {
                       setAnalyticsRange('daily');
                       loadAnalytics('daily');
@@ -983,7 +985,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                   </button>
                   <button
                     type="button"
-                    className={`ghost ${analyticsRange === 'weekly' ? 'selected' : ''}`}
+                    className={`px-4 py-2 border rounded-lg font-medium text-sm transition-colors ${analyticsRange === 'weekly' ? 'bg-blue-500/20 border-blue-400/40 text-blue-200' : 'border-white/10 bg-white/5 text-slate-100 hover:bg-white/10'}`}
                     onClick={() => {
                       setAnalyticsRange('weekly');
                       loadAnalytics('weekly');
@@ -998,21 +1000,21 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                 <div className="panel-empty">Loading analytics...</div>
               ) : (
                 <>
-                  <div className="metrics-grid">
-                    <article className="metric-card">
-                      <span className="metric-label">Telemetry events</span>
+                  <div className="grid gap-4 grid-cols-4">
+                    <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-4 grid gap-3">
+                      <span className="text-xs uppercase tracking-widest text-slate-400">Telemetry events</span>
                       <strong>{analytics?.summary?.totalTelemetry ?? '--'}</strong>
                     </article>
-                    <article className="metric-card">
-                      <span className="metric-label">Bus telemetry</span>
+                    <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-4 grid gap-3">
+                      <span className="text-xs uppercase tracking-widest text-slate-400">Bus telemetry</span>
                       <strong>{analytics?.summary?.busTelemetry ?? '--'}</strong>
                     </article>
-                    <article className="metric-card">
-                      <span className="metric-label">Student telemetry</span>
+                    <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-4 grid gap-3">
+                      <span className="text-xs uppercase tracking-widest text-slate-400">Student telemetry</span>
                       <strong>{analytics?.summary?.userTelemetry ?? '--'}</strong>
                     </article>
-                    <article className="metric-card">
-                      <span className="metric-label">Active fleet</span>
+                    <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-4 grid gap-3">
+                      <span className="text-xs uppercase tracking-widest text-slate-400">Active fleet</span>
                       <strong>{analytics?.summary?.activeBuses ?? '--'}</strong>
                     </article>
                   </div>
@@ -1022,22 +1024,22 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               )}
             </div>
 
-            <div className="panel stack">
-              <div className="panel-header">
+            <div className="rounded-2xl border border-white/10 bg-slate-900/90 p-4 grid gap-4">
+              <div className="flex justify-between items-start gap-4 mb-4">
                 <div>
                   <h3>Crowded-stop heatmap input</h3>
                   <p>Ranked stops for crowd hotspots and operator attention.</p>
                 </div>
               </div>
-              <div className="heatmap-list">
+              <div className="grid gap-2">
                 {(analytics?.crowdRankings || []).map((item) => (
-                  <article key={item.id} className="heat-row">
+                  <article key={item.id} className="flex justify-between items-center gap-4 border border-white/10 rounded-2xl bg-white/5 p-3">
                     <div>
                       <strong>{item.stopName}</strong>
                       <p>{item.routeName}</p>
                     </div>
-                    <div className="heat-meter">
-                      <div className="heat-meter-fill" style={{ width: `${item.intensity * 100}%` }} />
+                    <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full" style={{ width: `${item.intensity * 100}%` }} />
                     </div>
                     <span>{item.crowdLevel}</span>
                   </article>
@@ -1072,8 +1074,8 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               <div className="panel-empty">Loading telemetry logs...</div>
             ) : (
               <>
-                <div className="log-table">
-                  <div className="log-header">
+                <div className="space-y-2">
+                  <div className="grid grid-cols-5 gap-2 px-4 py-3 bg-slate-900/50 border-b border-white/10 font-medium text-sm text-slate-400 uppercase tracking-widest">
                     <span>Time</span>
                     <span>Source</span>
                     <span>Identity</span>
@@ -1081,7 +1083,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     <span>Coordinates</span>
                   </div>
                   {logs.map((item) => (
-                    <div key={item.id} className="log-row">
+                    <div key={item.id} className="grid grid-cols-5 gap-2 px-4 py-2 border-b border-white/10 text-sm text-slate-100 hover:bg-white/5 transition-colors">
                       <span>{new Date(item.timestamp).toLocaleString()}</span>
                       <span>{item.source}</span>
                       <span>{item.busPlateNumber || item.userName || item.busId || item.userId}</span>
@@ -1093,10 +1095,10 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                   ))}
                 </div>
 
-                <div className="pagination-row">
+                <div className="flex justify-between items-center gap-4 px-4 py-3 border-t border-white/10 text-sm text-slate-400">
                   <button
                     type="button"
-                    className="ghost"
+                    className="px-4 py-2 bg-white/5 border border-white/10 text-slate-100 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium"
                     disabled={logsPagination.page <= 1}
                     onClick={() => loadLogs(logsPagination.page - 1)}
                   >
@@ -1107,7 +1109,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                   </span>
                   <button
                     type="button"
-                    className="ghost"
+                    className="px-4 py-2 bg-white/5 border border-white/10 text-slate-100 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium"
                     disabled={logsPagination.page >= logsPagination.totalPages}
                     onClick={() => loadLogs(logsPagination.page + 1)}
                   >
