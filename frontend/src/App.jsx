@@ -1,7 +1,8 @@
 import React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import AdminDashboard from './components/AdminDashboard';
-import LiveMap from './components/LiveMap';
+// import LiveMap from './components/LiveMap';
+import LiveMap from './components/LiveMap-refactored';
 import './App.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
