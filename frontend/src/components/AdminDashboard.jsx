@@ -35,15 +35,15 @@ function BarChart({ points = [] }) {
   const maxValue = Math.max(...points.map((point) => point.total), 1);
 
   return (
-    <div className="chart-grid">
+    <div className="grid grid-cols-[repeat(auto-fit,_minmax(28px,_1fr))] items-end gap-2.5 min-h-64 p-4 rounded-lg bg-white/3">
       {points.map((point) => (
-        <div key={point.label} className="chart-bar-wrap">
+        <div key={point.label} className="grid gap-2 justify-items-center h-full">
           <div
-            className="chart-bar"
+            className="w-full rounded-t-xl bg-gradient-to-t from-blue-600 to-blue-400"
             style={{ height: `${Math.max((point.total / maxValue) * 100, point.total ? 12 : 4)}%` }}
             title={`${point.label}: ${point.total}`}
           />
-          <span>{point.label}</span>
+          <span className="text-xs text-slate-400">{point.label}</span>
         </div>
       ))}
     </div>
@@ -527,32 +527,40 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
   };
 
   return (
-    <div className="admin-dashboard">
-      <div className="dashboard-header">
+    <div className="grid gap-4">
+      <div className="flex justify-between items-start gap-3">
         <div>
-          <p className="eyebrow bg-red-900">SUBIS · Admin Console</p>
-          <h2>Welcome back, {currentUserName || 'Admin'}</h2>
-          <p className="lede">
+          <p className="text-blue-400 text-xs uppercase tracking-widest font-bold">SUBIS · Admin Console</p>
+          <h2 className="text-3xl font-bold text-white mt-2">Welcome back, {currentUserName || 'Admin'}</h2>
+          <p className="text-slate-300 text-base max-w-3xl leading-relaxed mt-2">
             Monitor fleet activity, review telemetry, and keep route data current from a single workspace.
           </p>
         </div>
-        <button className="ghost" type="button" onClick={onLogout}>
+        <button className="px-4 py-2 rounded-lg border border-white/15 bg-white/5 text-white font-bold hover:bg-white/10 transition transform hover:-translate-y-0.5" type="button" onClick={onLogout}>
           Log out
         </button>
       </div>
 
       {feedback.message && (
-        <div className={`banner ${feedback.type === 'error' ? 'error' : 'success'}`}>
+        <div className={`rounded-lg p-3 font-semibold text-sm border ${
+          feedback.type === 'error' 
+            ? 'bg-red-500/15 border-red-500/35 text-red-200' 
+            : 'bg-emerald-500/15 border-emerald-500/35 text-emerald-200'
+        }`}>
           {feedback.message}
         </div>
       )}
 
-      <div className="tab-strip">
+      <div className="flex gap-2 flex-wrap">
         {Object.entries(tabLabels).map(([key, label]) => (
           <button
             key={key}
             type="button"
-            className={`tab-button ${activeTab === key ? 'active' : ''}`}
+            className={`rounded-full px-4 py-2 font-bold text-sm transition transform hover:-translate-y-0.5 ${
+              activeTab === key
+                ? 'bg-blue-500/20 border border-blue-500/45 text-blue-100'
+                : 'border border-white/15 bg-white/5 text-white hover:bg-white/10'
+            }`}
             onClick={() => setActiveTab(key)}
           >
             {label}
@@ -561,84 +569,84 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
       </div>
 
       {activeTab === 'overview' && (
-        <section className="dashboard-section">
-          <div className="metrics-grid">
-            <article className="metric-card">
-              <span className="metric-label">Active buses</span>
-              <strong>{overview?.summary?.activeBusCount ?? '--'}</strong>
+        <section className="grid gap-4">
+          <div className="grid grid-cols-4 gap-3">
+            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
+              <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Active buses</span>
+              <strong className="text-3xl text-white">{overview?.summary?.activeBusCount ?? '--'}</strong>
             </article>
-            <article className="metric-card">
-              <span className="metric-label">Active routes</span>
-              <strong>{overview?.summary?.routeCount ?? '--'}</strong>
+            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
+              <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Active routes</span>
+              <strong className="text-3xl text-white">{overview?.summary?.routeCount ?? '--'}</strong>
             </article>
-            <article className="metric-card">
-              <span className="metric-label">Configured stops</span>
-              <strong>{overview?.summary?.stopCount ?? '--'}</strong>
+            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
+              <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Configured stops</span>
+              <strong className="text-3xl text-white">{overview?.summary?.stopCount ?? '--'}</strong>
             </article>
-            <article className="metric-card">
-              <span className="metric-label">Telemetry records</span>
-              <strong>{overview?.summary?.telemetryCount ?? '--'}</strong>
+            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
+              <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Telemetry records</span>
+              <strong className="text-3xl text-white">{overview?.summary?.telemetryCount ?? '--'}</strong>
             </article>
           </div>
 
-          <div className="dashboard-grid two-column">
-            <div className="panel large flex flex-col">
-              <div className="panel-header">
+          <div className="grid lg:grid-cols-[1.7fr_1fr] gap-4">
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 min-h-96 flex flex-col">
+              <div className="flex justify-between items-start gap-3 mb-4">
                 <div>
-                  <h3>Operations map</h3>
-                  <p>All active buses and campus routes in a single live view.</p>
+                  <h3 className="text-lg font-bold text-white">Operations map</h3>
+                  <p className="text-slate-400 text-sm">All active buses and campus routes in a single live view.</p>
                 </div>
-                <button className="ghost" type="button" onClick={loadOverview}>
+                <button className="px-3 py-1.5 rounded-lg border border-white/15 bg-white/5 text-white text-sm font-bold hover:bg-white/10 transition" type="button" onClick={loadOverview}>
                   Refresh
                 </button>
               </div>
 
               {loadingState.overview ? (
-                <div className="panel-empty">Loading live fleet overview...</div>
+                <div className="flex-1 grid place-items-center text-center text-slate-400">Loading live fleet overview...</div>
               ) : (
-                <div className="map-frame dashboard-map-frame">
+                <div className="flex-1 rounded-lg overflow-hidden border border-white/10 bg-slate-950/50">
                   <TransitMap routes={overviewMapRoutes} buses={overviewMapBuses} />
                 </div>
               )}
             </div>
 
-            <div className="panel stack">
-              <div className="panel-header">
-                <div>
-                  <h3>Active alerts</h3>
-                  <p>Stale bus pings and crowd conditions needing attention.</p>
-                </div>
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
+              <div>
+                <h3 className="text-lg font-bold text-white">Active alerts</h3>
+                <p className="text-slate-400 text-sm">Stale bus pings and crowd conditions needing attention.</p>
               </div>
-              <div className="alert-list">
-                {(overview?.alerts || []).length === 0 && <div className="panel-empty">No active alerts.</div>}
+              <div className="grid gap-2 max-h-48 overflow-y-auto">
+                {(overview?.alerts || []).length === 0 && <div className="text-center py-8 text-slate-400">No active alerts.</div>}
                 {(overview?.alerts || []).map((alert, index) => (
-                  <article key={`${alert.type}-${index}`} className={`alert-card severity-${alert.severity}`}>
-                    <strong>{alert.title}</strong>
-                    <p>{alert.description}</p>
+                  <article key={`${alert.type}-${index}`} className={`rounded-lg p-3 border ${
+                    alert.severity === 'high' 
+                      ? 'border-red-500/35 bg-red-500/10' 
+                      : 'border-amber-500/35 bg-amber-500/10'
+                  }`}>
+                    <strong className="text-white text-sm">{alert.title}</strong>
+                    <p className={`text-sm mt-1 ${alert.severity === 'high' ? 'text-red-200' : 'text-amber-200'}`}>{alert.description}</p>
                   </article>
                 ))}
               </div>
 
-              <div className="panel-subsection">
-                <div className="panel-header">
-                  <div>
-                    <h3>Crowded stops</h3>
-                    <p>Jump straight into route editing from the hotspots list.</p>
-                  </div>
+              <div className="pt-2 border-t border-white/10 grid gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-white">Crowded stops</h3>
+                  <p className="text-slate-400 text-xs">Jump straight into route editing from the hotspots list.</p>
                 </div>
-                <div className="crowd-stop-list">
+                <div className="grid gap-2">
                   {(overview?.crowdStops || []).map((stop) => {
                     const fullStop = allStops.find((item) => item.id === stop.id);
                     return (
                       <button
                         type="button"
                         key={stop.id}
-                        className="crowd-stop-card"
+                        className="rounded-lg p-3 border border-white/10 bg-white/5 text-left hover:bg-white/10 transition text-sm"
                         onClick={() => populateStopForm(fullStop)}
                       >
-                        <span>{stop.name}</span>
-                        <strong>{stop.routeName}</strong>
-                        <em>{stop.crowdLevel}</em>
+                        <span className="text-white block font-bold">{stop.name}</span>
+                        <strong className="text-blue-300 text-xs block">{stop.routeName}</strong>
+                        <em className="text-slate-400 text-xs block">{stop.crowdLevel}</em>
                       </button>
                     );
                   })}
@@ -650,70 +658,74 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
       )}
 
       {activeTab === 'routes' && (
-        <section className="dashboard-section">
-          <div className="dashboard-grid two-column">
-            <div className="panel stack">
-              <div className="panel-header">
-                <div>
-                  <h3>Route manager</h3>
-                  <p>Create routes, update route details, and adjust stop coordinates.</p>
-                </div>
+        <section className="grid gap-4">
+          <div className="grid lg:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
+              <div>
+                <h3 className="text-lg font-bold text-white">Route manager</h3>
+                <p className="text-slate-400 text-sm">Create routes, update route details, and adjust stop coordinates.</p>
               </div>
 
-              <form className="form compact-form" onSubmit={handleRouteCreate}>
-                <div className="form-row">
-                  <label className="field">
-                    <span>Route name</span>
+              <form className="grid gap-3" onSubmit={handleRouteCreate}>
+                <div className="grid grid-cols-[1fr_auto] gap-3">
+                  <label className="grid gap-1.5">
+                    <span className="text-slate-300 text-xs font-bold uppercase">Route name</span>
                     <input
                       type="text"
                       value={routeForm.name}
                       onChange={(event) => setRouteForm((current) => ({ ...current, name: event.target.value }))}
                       placeholder="Blue Line"
+                      className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
                       required
                     />
                   </label>
-                  <label className="field color-field">
-                    <span>Color</span>
+                  <label className="grid gap-1.5">
+                    <span className="text-slate-300 text-xs font-bold uppercase">Color</span>
                     <input
                       type="color"
                       value={routeForm.color}
                       onChange={(event) => setRouteForm((current) => ({ ...current, color: event.target.value }))}
+                      className="rounded-lg h-10 cursor-pointer"
                     />
                   </label>
                 </div>
-                <button className="primary" type="submit" disabled={loadingState.saving}>
+                <button className="px-4 py-2 rounded-lg font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-slate-950 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20 transition" type="submit" disabled={loadingState.saving}>
                   {loadingState.saving ? 'Saving…' : 'Create route'}
                 </button>
               </form>
 
-              <div className="route-list">
+              <div className="grid gap-2 max-h-64 overflow-y-auto">
                 {routeOptions.map((route) => (
                   <button
                     key={route.id}
                     type="button"
-                    className={`route-list-item ${selectedRouteId === route.id ? 'active' : ''}`}
+                    className={`flex items-center gap-3 rounded-lg p-3 text-left transition ${
+                      selectedRouteId === route.id
+                        ? 'bg-blue-500/20 border border-blue-500/45'
+                        : 'border border-white/10 bg-white/5 hover:bg-white/10'
+                    }`}
                     onClick={() => {
                       setSelectedRouteId(route.id);
                       setStopForm((current) => ({ ...current, routeId: route.id }));
                     }}
                   >
-                    <span className="route-color" style={{ backgroundColor: route.color || '#3B82F6' }} />
-                    <div>
-                      <strong>{route.name}</strong>
-                      <p>{route.stops?.length || 0} stops</p>
+                    <span className="w-3 h-10 rounded-full" style={{ backgroundColor: route.color || '#3B82F6' }} />
+                    <div className="flex-1 min-w-0">
+                      <strong className="text-white text-sm block">{route.name}</strong>
+                      <p className="text-slate-400 text-xs">{route.stops?.length || 0} stops</p>
                     </div>
                   </button>
                 ))}
               </div>
 
-              <div className="route-edit-card">
-                <div className="panel-header">
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4 grid gap-4">
+                <div className="flex justify-between items-start gap-3">
                   <div>
-                    <h3>{selectedRoute?.name || 'Select a route'}</h3>
-                    <p>Click the map to fill latitude and longitude for a stop.</p>
+                    <h3 className="text-base font-bold text-white">{selectedRoute?.name || 'Select a route'}</h3>
+                    <p className="text-slate-400 text-xs mt-1">Click the map to fill latitude and longitude for a stop.</p>
                   </div>
                   <button
-                    className="ghost danger"
+                    className="px-3 py-1.5 rounded-lg text-red-200 border border-red-500/45 bg-red-500/12 text-xs font-bold hover:bg-red-500/18 transition disabled:opacity-50"
                     type="button"
                     onClick={handleRouteDelete}
                     disabled={loadingState.saving || !selectedRoute?.id}
@@ -722,14 +734,15 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                   </button>
                 </div>
 
-                <form className="form compact-form" onSubmit={handleStopSubmit}>
-                  <label className="field">
-                    <span>Route</span>
+                <form className="grid gap-3" onSubmit={handleStopSubmit}>
+                  <label className="grid gap-1.5">
+                    <span className="text-slate-300 text-xs font-bold uppercase">Route</span>
                     <select
                       value={stopForm.routeId}
                       onChange={(event) =>
                         setStopForm((current) => ({ ...current, routeId: event.target.value }))
                       }
+                      className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
                     >
                       {routeOptions.map((route) => (
                         <option key={route.id} value={route.id}>
@@ -739,19 +752,18 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     </select>
                   </label>
 
-                  <div className="location-search-block">
-                    <div className="panel-header">
-                      <div>
-                        <h3>Search location</h3>
-                        <p>Find a place name and use its coordinates for this stop.</p>
-                      </div>
+                  <div className="rounded-lg border border-white/10 bg-white/3 p-3 grid gap-2">
+                    <div>
+                      <h3 className="text-sm font-bold text-white">Search location</h3>
+                      <p className="text-slate-400 text-xs mt-1">Find a place name and use its coordinates for this stop.</p>
                     </div>
-                    <div className="location-search-form">
+                    <div className="flex gap-2">
                       <input
                         type="text"
                         value={locationQuery}
                         onChange={(event) => setLocationQuery(event.target.value)}
                         placeholder="Search campus gate, department, street, or landmark"
+                        className="flex-1 rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
                             handleLocationSearch(event);
@@ -759,7 +771,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                         }}
                       />
                       <button
-                        className="ghost"
+                        className="px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-white text-sm font-bold hover:bg-white/10 transition disabled:opacity-50"
                         type="button"
                         onClick={handleLocationSearch}
                         disabled={loadingState.geocoding}
@@ -768,18 +780,20 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                       </button>
                     </div>
                     {locationResults.length > 0 && (
-                      <div className="location-results">
+                      <div className="grid gap-1 max-h-32 overflow-y-auto">
                         {locationResults.map((result) => (
                           <button
                             key={result.id}
                             type="button"
-                            className={`location-result ${
-                              selectedLocationResultId === result.id ? 'active' : ''
+                            className={`text-left rounded-lg p-2 text-xs transition ${
+                              selectedLocationResultId === result.id
+                                ? 'bg-amber-500/20 border border-amber-500/45'
+                                : 'border border-white/10 bg-white/5 hover:bg-white/10'
                             }`}
                             onClick={() => applyLocationResult(result)}
                           >
-                            <strong>{result.label}</strong>
-                            <span>
+                            <strong className="text-white block">{result.label}</strong>
+                            <span className="text-slate-400">
                               {result.latitude.toFixed(5)}, {result.longitude.toFixed(5)}
                             </span>
                           </button>
@@ -788,32 +802,34 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     )}
                   </div>
 
-                  <div className="form-row">
-                    <label className="field">
-                      <span>Stop name</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="grid gap-1.5">
+                      <span className="text-slate-300 text-xs font-bold uppercase">Stop name</span>
                       <input
                         type="text"
                         value={stopForm.name}
                         onChange={(event) => setStopForm((current) => ({ ...current, name: event.target.value }))}
                         placeholder="Main Gate"
+                        className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
                         required
                       />
                     </label>
-                    <label className="field">
-                      <span>Order</span>
+                    <label className="grid gap-1.5">
+                      <span className="text-slate-300 text-xs font-bold uppercase">Order</span>
                       <input
                         type="number"
                         min="1"
                         value={stopForm.order}
                         onChange={(event) => setStopForm((current) => ({ ...current, order: event.target.value }))}
+                        className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
                         required
                       />
                     </label>
                   </div>
 
-                  <div className="form-row">
-                    <label className="field">
-                      <span>Latitude</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="grid gap-1.5">
+                      <span className="text-slate-300 text-xs font-bold uppercase">Latitude</span>
                       <input
                         type="number"
                         step="0.000001"
@@ -821,11 +837,12 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                         onChange={(event) =>
                           setStopForm((current) => ({ ...current, latitude: event.target.value }))
                         }
+                        className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
                         required
                       />
                     </label>
-                    <label className="field">
-                      <span>Longitude</span>
+                    <label className="grid gap-1.5">
+                      <span className="text-slate-300 text-xs font-bold uppercase">Longitude</span>
                       <input
                         type="number"
                         step="0.000001"
@@ -833,14 +850,15 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                         onChange={(event) =>
                           setStopForm((current) => ({ ...current, longitude: event.target.value }))
                         }
+                        className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
                         required
                       />
                     </label>
                   </div>
 
-                  <div className="actions">
+                  <div className="flex gap-3">
                     <button
-                      className="ghost"
+                      className="flex-1 px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-white text-sm font-bold hover:bg-white/10 transition"
                       type="button"
                       onClick={() => {
                         setStopForm((current) => ({
@@ -860,7 +878,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     </button>
                     {stopForm.stopId && (
                       <button
-                        className="ghost danger"
+                        className="flex-1 px-3 py-2 rounded-lg text-red-200 border border-red-500/45 bg-red-500/12 text-sm font-bold hover:bg-red-500/18 transition disabled:opacity-50"
                         type="button"
                         onClick={handleStopDelete}
                         disabled={loadingState.saving}
@@ -868,7 +886,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                         Delete stop
                       </button>
                     )}
-                    <button className="primary" type="submit" disabled={loadingState.saving}>
+                    <button className="flex-1 px-3 py-2 rounded-lg font-bold text-sm bg-gradient-to-r from-blue-500 to-blue-600 text-slate-950 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20 transition" type="submit" disabled={loadingState.saving}>
                       {stopForm.stopId ? 'Update stop' : 'Add stop'}
                     </button>
                   </div>
@@ -876,15 +894,13 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               </div>
             </div>
 
-            <div className="panel stack">
-              <div className="panel-header">
-                <div>
-                  <h3>Route map editor</h3>
-                  <p>Lightweight coordinate editing for the selected route.</p>
-                </div>
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
+              <div>
+                <h3 className="text-lg font-bold text-white">Route map editor</h3>
+                <p className="text-slate-400 text-sm">Lightweight coordinate editing for the selected route.</p>
               </div>
 
-              <div className="map-frame dashboard-map-frame">
+              <div className="rounded-lg overflow-hidden border border-white/10 bg-slate-950/50 min-h-96">
                 <TransitMap
                   routes={selectedRouteMap}
                   buses={[]}
@@ -896,12 +912,12 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                 />
               </div>
 
-              <div className="stop-table">
+              <div className="grid gap-1 max-h-32 overflow-y-auto">
                 {(selectedRoute?.stops || []).map((stop) => (
                   <button
                     key={stop.id}
                     type="button"
-                    className="stop-row"
+                    className="text-left rounded-lg p-3 border border-white/10 bg-white/5 hover:bg-white/10 transition text-sm"
                     onClick={() =>
                       populateStopForm({
                         ...stop,
@@ -909,14 +925,14 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                       })
                     }
                   >
-                    <strong>{stop.name}</strong>
-                    <span>
+                    <strong className="text-white block">{stop.name}</strong>
+                    <span className="text-slate-400 text-xs">
                       #{stop.order} · {stop.latitude.toFixed(4)}, {stop.longitude.toFixed(4)}
                     </span>
                   </button>
                 ))}
                 {!selectedRoute?.stops?.length && (
-                  <div className="panel-empty">No stops configured for this route yet.</div>
+                  <div className="text-center py-8 text-slate-400 text-sm">No stops configured for this route yet.</div>
                 )}
               </div>
             </div>
@@ -925,18 +941,22 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
       )}
 
       {activeTab === 'analytics' && (
-        <section className="dashboard-section">
-          <div className="dashboard-grid two-column">
-            <div className="panel large stack">
-              <div className="panel-header">
+        <section className="grid gap-4">
+          <div className="grid lg:grid-cols-[1.5fr_1fr] gap-4">
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
+              <div className="flex justify-between items-start gap-3">
                 <div>
-                  <h3>Usage analytics</h3>
-                  <p>Daily and weekly telemetry activity across the SUBIS platform.</p>
+                  <h3 className="text-lg font-bold text-white">Usage analytics</h3>
+                  <p className="text-slate-400 text-sm">Daily and weekly telemetry activity across the SUBIS platform.</p>
                 </div>
-                <div className="toggle-group">
+                <div className="flex gap-1.5">
                   <button
                     type="button"
-                    className={`ghost ${analyticsRange === 'daily' ? 'selected' : ''}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      analyticsRange === 'daily'
+                        ? 'bg-blue-500/20 border border-blue-500/45 text-blue-100'
+                        : 'border border-white/15 bg-white/5 text-white hover:bg-white/10'
+                    }`}
                     onClick={() => {
                       setAnalyticsRange('daily');
                       loadAnalytics('daily');
@@ -946,7 +966,11 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                   </button>
                   <button
                     type="button"
-                    className={`ghost ${analyticsRange === 'weekly' ? 'selected' : ''}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      analyticsRange === 'weekly'
+                        ? 'bg-blue-500/20 border border-blue-500/45 text-blue-100'
+                        : 'border border-white/15 bg-white/5 text-white hover:bg-white/10'
+                    }`}
                     onClick={() => {
                       setAnalyticsRange('weekly');
                       loadAnalytics('weekly');
@@ -958,25 +982,25 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               </div>
 
               {loadingState.analytics ? (
-                <div className="panel-empty">Loading analytics...</div>
+                <div className="py-12 text-center text-slate-400">Loading analytics...</div>
               ) : (
                 <>
-                  <div className="metrics-grid">
-                    <article className="metric-card">
-                      <span className="metric-label">Telemetry events</span>
-                      <strong>{analytics?.summary?.totalTelemetry ?? '--'}</strong>
+                  <div className="grid grid-cols-4 gap-2">
+                    <article className="rounded-lg border border-white/10 bg-white/5 p-3 grid gap-1.5">
+                      <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Telemetry events</span>
+                      <strong className="text-2xl text-white">{analytics?.summary?.totalTelemetry ?? '--'}</strong>
                     </article>
-                    <article className="metric-card">
-                      <span className="metric-label">Bus telemetry</span>
-                      <strong>{analytics?.summary?.busTelemetry ?? '--'}</strong>
+                    <article className="rounded-lg border border-white/10 bg-white/5 p-3 grid gap-1.5">
+                      <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Bus telemetry</span>
+                      <strong className="text-2xl text-white">{analytics?.summary?.busTelemetry ?? '--'}</strong>
                     </article>
-                    <article className="metric-card">
-                      <span className="metric-label">Student telemetry</span>
-                      <strong>{analytics?.summary?.userTelemetry ?? '--'}</strong>
+                    <article className="rounded-lg border border-white/10 bg-white/5 p-3 grid gap-1.5">
+                      <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Student telemetry</span>
+                      <strong className="text-2xl text-white">{analytics?.summary?.userTelemetry ?? '--'}</strong>
                     </article>
-                    <article className="metric-card">
-                      <span className="metric-label">Active fleet</span>
-                      <strong>{analytics?.summary?.activeBuses ?? '--'}</strong>
+                    <article className="rounded-lg border border-white/10 bg-white/5 p-3 grid gap-1.5">
+                      <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Active fleet</span>
+                      <strong className="text-2xl text-white">{analytics?.summary?.activeBuses ?? '--'}</strong>
                     </article>
                   </div>
 
@@ -985,92 +1009,93 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               )}
             </div>
 
-            <div className="panel stack">
-              <div className="panel-header">
-                <div>
-                  <h3>Crowded-stop heatmap input</h3>
-                  <p>Ranked stops for crowd hotspots and operator attention.</p>
-                </div>
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
+              <div>
+                <h3 className="text-lg font-bold text-white">Crowded-stop heatmap input</h3>
+                <p className="text-slate-400 text-sm">Ranked stops for crowd hotspots and operator attention.</p>
               </div>
-              <div className="heatmap-list">
+              <div className="grid gap-2 max-h-96 overflow-y-auto">
                 {(analytics?.crowdRankings || []).map((item) => (
-                  <article key={item.id} className="heat-row">
-                    <div>
-                      <strong>{item.stopName}</strong>
-                      <p>{item.routeName}</p>
+                  <article key={item.id} className="grid gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <strong className="text-white text-sm block">{item.stopName}</strong>
+                        <p className="text-slate-400 text-xs">{item.routeName}</p>
+                      </div>
+                      <span className="text-white text-xs font-bold">{item.crowdLevel}</span>
                     </div>
-                    <div className="heat-meter">
-                      <div className="heat-meter-fill" style={{ width: `${item.intensity * 100}%` }} />
+                    <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-amber-500 to-red-500" style={{ width: `${item.intensity * 100}%` }} />
                     </div>
-                    <span>{item.crowdLevel}</span>
                   </article>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="panel stack">
-            <div className="panel-header">
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4">
+            <div className="flex justify-between items-start gap-3">
               <div>
-                <h3>Telemetry logs</h3>
-                <p>Newest-first persisted telemetry with simple source filtering.</p>
+                <h3 className="text-lg font-bold text-white">Telemetry logs</h3>
+                <p className="text-slate-400 text-sm">Newest-first persisted telemetry with simple source filtering.</p>
               </div>
-              <div className="toggle-group">
-                <select
-                  value={logSource}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setLogSource(value);
-                    loadLogs(1, value);
-                  }}
-                >
-                  <option value="">All sources</option>
-                  <option value="BUS">Bus only</option>
-                  <option value="USER">Student only</option>
-                </select>
-              </div>
+              <select
+                value={logSource}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setLogSource(value);
+                  loadLogs(1, value);
+                }}
+                className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
+              >
+                <option value="">All sources</option>
+                <option value="BUS">Bus only</option>
+                <option value="USER">Student only</option>
+              </select>
             </div>
 
             {loadingState.logs ? (
-              <div className="panel-empty">Loading telemetry logs...</div>
+              <div className="py-12 text-center text-slate-400">Loading telemetry logs...</div>
             ) : (
               <>
-                <div className="log-table">
-                  <div className="log-header">
+                <div className="rounded-lg border border-white/10 overflow-hidden">
+                  <div className="grid grid-cols-5 gap-3 bg-white/5 p-3 border-b border-white/10 text-xs uppercase tracking-wider font-bold text-slate-400">
                     <span>Time</span>
                     <span>Source</span>
                     <span>Identity</span>
                     <span>Route</span>
                     <span>Coordinates</span>
                   </div>
-                  {logs.map((item) => (
-                    <div key={item.id} className="log-row">
-                      <span>{new Date(item.timestamp).toLocaleString()}</span>
-                      <span>{item.source}</span>
-                      <span>{item.busPlateNumber || item.userName || item.busId || item.userId}</span>
-                      <span>{item.routeName || '—'}</span>
-                      <span>
-                        {Number(item.latitude).toFixed(4)}, {Number(item.longitude).toFixed(4)}
-                      </span>
-                    </div>
-                  ))}
+                  <div className="max-h-72 overflow-y-auto">
+                    {logs.map((item, idx) => (
+                      <div key={item.id} className={`grid grid-cols-5 gap-3 p-3 text-xs border-t border-white/5 ${idx % 2 === 0 ? 'bg-white/2' : ''}`}>
+                        <span className="text-slate-300">{new Date(item.timestamp).toLocaleString()}</span>
+                        <span className="text-slate-300">{item.source}</span>
+                        <span className="text-slate-300">{item.busPlateNumber || item.userName || item.busId || item.userId}</span>
+                        <span className="text-slate-300">{item.routeName || '—'}</span>
+                        <span className="text-slate-300">
+                          {Number(item.latitude).toFixed(4)}, {Number(item.longitude).toFixed(4)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="pagination-row">
+                <div className="flex justify-between items-center gap-3">
                   <button
                     type="button"
-                    className="ghost"
+                    className="px-4 py-2 rounded-lg border border-white/15 bg-white/5 text-white text-sm font-bold hover:bg-white/10 transition disabled:opacity-50"
                     disabled={logsPagination.page <= 1}
                     onClick={() => loadLogs(logsPagination.page - 1)}
                   >
                     Previous
                   </button>
-                  <span>
+                  <span className="text-slate-300 text-sm">
                     Page {logsPagination.page} of {logsPagination.totalPages} · {logsPagination.total} records
                   </span>
                   <button
                     type="button"
-                    className="ghost"
+                    className="px-4 py-2 rounded-lg border border-white/15 bg-white/5 text-white text-sm font-bold hover:bg-white/10 transition disabled:opacity-50"
                     disabled={logsPagination.page >= logsPagination.totalPages}
                     onClick={() => loadLogs(logsPagination.page + 1)}
                   >
