@@ -1,3 +1,4 @@
+import React from "react";
 export default function AlarmPopup({ open, busName, stopName, etaText, onStopAlarm }) {
   if (!open) return null;
 
