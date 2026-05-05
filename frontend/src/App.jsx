@@ -222,6 +222,8 @@ function App() {
     home: currentUserRole === 'ADMIN' ? 'Admin Dashboard' : 'Home',
   }[step];
 
+  const isAuthStep = step !== 'home';
+
   const lede = {
     register:
       'Sign up to access the student bus information system. We will email you a 6-digit code to verify your account.',
@@ -233,198 +235,220 @@ function App() {
         : 'You are signed in. Explore the live student map or log out.',
   }[step];
 
+  const authHighlights = [
+    {
+      label: 'Secure access',
+      value: 'Email + OTP',
+      detail: 'Verification keeps student and admin accounts tied to the university address you use.',
+    },
+    {
+      label: 'Fast setup',
+      value: '6-digit code',
+      detail: 'Registration stays lightweight so first-time users can complete onboarding in minutes.',
+    },
+    {
+      label: 'Live operations',
+      value: 'Real-time map',
+      detail: 'Verified users land directly in the control surface with live tracking and alerts.',
+    },
+  ];
+
   return (
-    <div className="page">
-      <div className="glass">
-        <header className="header">
-          <p className="eyebrow">SUBIS · Authentication</p>
-          <h1>{title}</h1>
-          <p className="lede">{lede}</p>
-        </header>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-slate-950 grid place-items-center p-8">
+      <div className="w-full max-w-5xl rounded-2xl border border-white/10 backdrop-blur-lg shadow-2xl bg-white/4 p-8">
+        {isAuthStep ? (
+          <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-6 auto-rows-start lg:auto-rows-stretch">
+            <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-950/80 p-9 grid gap-6 content-start">
+              <p className="text-blue-400 text-xs uppercase tracking-[0.18em] font-bold">SUBIS · Authentication</p>
+              <h1 className="text-4xl lg:text-5xl font-bold leading-tight tracking-tight max-w-xs text-white">{title}</h1>
+              <p className="text-slate-300 text-base max-w-2xl leading-relaxed">{lede}</p>
 
-        {message && <div className="banner success">{message}</div>}
-        {error && <div className="banner error">{error}</div>}
+              <div className="grid md:grid-cols-3 gap-3 mt-2">
+                {authHighlights.map((item) => (
+                  <article key={item.label} className="rounded-xl border border-blue-500/20 bg-blue-500/8 p-4 grid gap-2">
+                    <span className="text-blue-300 text-xs uppercase tracking-wider font-bold">{item.label}</span>
+                    <strong className="text-blue-100 text-base">{item.value}</strong>
+                    <p className="text-slate-300 text-sm leading-relaxed m-0">{item.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
 
-        {step === 'register' && (
-          <form className="form" onSubmit={handleRegister}>
-            <label className="field">
-              <span>Name</span>
-              <input
-                type="text"
-                name="name"
-                placeholder="Jane Doe"
-                value={registerForm.name}
-                onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
-                required
-              />
-            </label>
-
-            <label className="field">
-              <span>Email</span>
-              <input
-                type="email"
-                name="email"
-                placeholder="you@university.edu"
-                value={registerForm.email}
-                onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-                required
-              />
-            </label>
-
-            <label className="field">
-              <span>Password</span>
-              <input
-                type="password"
-                name="password"
-                placeholder="At least 6 characters"
-                value={registerForm.password}
-                onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-                minLength={6}
-                required
-              />
-            </label>
-
-            <label className="field">
-              <span>Role</span>
-              <select
-                name="role"
-                value={registerForm.role}
-                onChange={(e) => setRegisterForm({ ...registerForm, role: e.target.value })}
-              >
-                <option value="STUDENT">Student</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-            </label>
-
-            <button className="primary" type="submit" disabled={!canSubmitRegister || isSubmitting}>
-              {isSubmitting ? 'Sending OTP…' : 'Send OTP'}
-            </button>
-
-            <p className="muted">
-              Already verified?{' '}
-              <button type="button" className="link" onClick={() => setStepAndClear('login')}>
-                Go to login
-              </button>
-            </p>
-
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => setStepAndClear('login')}
-              style={{ marginTop: '4px' }}
-            >
-              Go to login
-            </button>
-          </form>
-        )}
-
-        {step === 'otp' && (
-          <form className="form" onSubmit={handleVerifyOtp}>
-            <label className="field">
-              <span>Email</span>
-              <input
-                type="email"
-                name="email"
-                placeholder="you@university.edu"
-                value={otpForm.email}
-                onChange={(e) => setOtpForm({ ...otpForm, email: e.target.value })}
-                required
-              />
-            </label>
-
-            <label className="field">
-              <span>6-digit code</span>
-              <input
-                type="text"
-                name="otp"
-                inputMode="numeric"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                placeholder="123456"
-                value={otpForm.otp}
-                onChange={(e) => setOtpForm({ ...otpForm, otp: e.target.value.replace(/\D/g, '') })}
-                required
-              />
-            </label>
-
-            <div className="actions">
-              <button className="ghost" type="button" onClick={() => setStep('register')}>
-                Change email
-              </button>
-              <button className="primary" type="submit" disabled={!canSubmitOtp || isSubmitting}>
-                {isSubmitting ? 'Verifying…' : 'Verify OTP'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {step === 'login' && (
-          <form className="form" onSubmit={handleLogin}>
-            <label className="field">
-              <span>Email</span>
-              <input
-                type="email"
-                name="email"
-                placeholder="you@university.edu"
-                value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                required
-              />
-            </label>
-
-            <label className="field">
-              <span>Password</span>
-              <input
-                type="password"
-                name="password"
-                placeholder="Your password"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                minLength={6}
-                required
-              />
-            </label>
-
-            <button className="primary" type="submit" disabled={!canSubmitLogin || isSubmitting}>
-              {isSubmitting ? 'Logging in…' : 'Log in'}
-            </button>
-
-            <p className="muted">
-              Need an account?{' '}
-              <button type="button" className="link" onClick={() => setStepAndClear('register')}>
-                Sign up
-              </button>
-            </p>
-          </form>
-        )}
-
-        {step === 'home' &&
-          (currentUserRole === 'ADMIN' ? (
-            <AdminDashboard
-              authToken={authToken}
-              currentUserName={currentUserName}
-              onLogout={handleLogout}
-            />
-          ) : (
-            <div className="home-layout">
-              <div className="home-header">
-                <div>
-                  <div className="pill">Live Map</div>
-                  <h2 className='bg-red-900'>Welcome{currentUserEmail ? `, ${currentUserEmail}` : ''}!</h2>
-                </div>
-                <button className="ghost" type="button" onClick={handleLogout}>
-                  Log out
-                </button>
+            <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-6 grid gap-4 content-start">
+              <div className="flex justify-between items-center gap-3">
+                <span className="inline-flex items-center rounded-full px-3 py-1.5 bg-blue-500/20 text-blue-200 text-xs uppercase tracking-wider font-bold">Secure access</span>
+                <span className="inline-flex items-center rounded-full px-3 py-1.5 bg-amber-500/20 text-amber-200 text-xs uppercase tracking-wider font-bold">OTP enabled</span>
               </div>
 
-              <div className="map-container">
-                <LiveMap
-                  userId={currentUserId}
-                  userName={currentUserName || currentUserEmail.split('@')[0] || 'Student'}
-                />
+              {message && <div className="rounded-lg p-3 bg-emerald-500/15 border border-emerald-500/35 text-emerald-200 font-semibold text-sm">{message}</div>}
+              {error && <div className="rounded-lg p-3 bg-red-500/15 border border-red-500/35 text-red-200 font-semibold text-sm">{error}</div>}
+
+              {step === 'register' && (
+                <form className="grid gap-4" onSubmit={handleRegister}>
+                  <label className="grid gap-1.5">
+                    <span className="text-slate-300 text-sm">Name</span>
+                    <input
+                      type="text"
+                      name="name"
+                      placeholder="Jane Doe"
+                      value={registerForm.name}
+                      onChange={(e) => setRegisterForm({ ...registerForm, name: e.target.value })}
+                      className="rounded-lg border border-white/10 bg-white/5 text-white p-3 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
+                      required
+                    />
+                  </label>
+
+                  <label className="grid gap-1.5">
+                    <span className="text-slate-300 text-sm">Email</span>
+                    <input
+                      type="email"
+                      name="email"
+                      placeholder="you@university.edu"
+                      value={registerForm.email}
+                      onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                      className="rounded-lg border border-white/10 bg-white/5 text-white p-3 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
+                      required
+                    />
+                  </label>
+
+                  <label className="grid gap-1.5">
+                    <span className="text-slate-300 text-sm">Password</span>
+                    <input
+                      type="password"
+                      name="password"
+                      placeholder="At least 6 characters"
+                      value={registerForm.password}
+                      onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                      className="rounded-lg border border-white/10 bg-white/5 text-white p-3 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
+                      minLength={6}
+                      required
+                    />
+                  </label>
+
+                  <button className="h-12 rounded-lg font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-slate-950 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20 transition transform hover:-translate-y-0.5" type="submit" disabled={!canSubmitRegister || isSubmitting}>
+                    {isSubmitting ? 'Sending OTP…' : 'Send OTP'}
+                  </button>
+
+                  <p className="text-slate-400 text-sm mt-2">
+                    Already verified?{' '}
+                    <button type="button" className="bg-none border-none text-blue-300 font-bold cursor-pointer p-0 hover:text-blue-200 transition" onClick={() => setStepAndClear('login')}>
+                      Go to login
+                    </button>
+                  </p>
+                </form>
+              )}
+
+              {step === 'otp' && (
+                <form className="grid gap-4" onSubmit={handleVerifyOtp}>
+                  <label className="grid gap-1.5">
+                    <span className="text-slate-300 text-sm">Email</span>
+                    <input
+                      type="email"
+                      name="email"
+                      placeholder="you@university.edu"
+                      value={otpForm.email}
+                      onChange={(e) => setOtpForm({ ...otpForm, email: e.target.value })}
+                      className="rounded-lg border border-white/10 bg-white/5 text-white p-3 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
+                      required
+                    />
+                  </label>
+
+                  <label className="grid gap-1.5">
+                    <span className="text-slate-300 text-sm">6-digit code</span>
+                    <input
+                      type="text"
+                      name="otp"
+                      inputMode="numeric"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
+                      placeholder="123456"
+                      value={otpForm.otp}
+                      onChange={(e) => setOtpForm({ ...otpForm, otp: e.target.value.replace(/\D/g, '') })}
+                      className="rounded-lg border border-white/10 bg-white/5 text-white p-3 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
+                      required
+                    />
+                  </label>
+
+                  <div className="flex gap-3">
+                    <button className="flex-1 h-10 rounded-lg font-bold border border-white/15 bg-white/5 text-white hover:bg-white/10 transition transform hover:-translate-y-0.5" type="button" onClick={() => setStep('register')}>
+                      Change email
+                    </button>
+                    <button className="flex-1 h-10 rounded-lg font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-slate-950 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20 transition transform hover:-translate-y-0.5" type="submit" disabled={!canSubmitOtp || isSubmitting}>
+                      {isSubmitting ? 'Verifying…' : 'Verify OTP'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {step === 'login' && (
+                <form className="grid gap-4" onSubmit={handleLogin}>
+                  <label className="grid gap-1.5">
+                    <span className="text-slate-300 text-sm">Email</span>
+                    <input
+                      type="email"
+                      name="email"
+                      placeholder="you@university.edu"
+                      value={loginForm.email}
+                      onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                      className="rounded-lg border border-white/10 bg-white/5 text-white p-3 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
+                      required
+                    />
+                  </label>
+
+                  <label className="grid gap-1.5">
+                    <span className="text-slate-300 text-sm">Password</span>
+                    <input
+                      type="password"
+                      name="password"
+                      placeholder="Your password"
+                      value={loginForm.password}
+                      onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                      className="rounded-lg border border-white/10 bg-white/5 text-white p-3 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
+                      minLength={6}
+                      required
+                    />
+                  </label>
+
+                  <button className="h-12 rounded-lg font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-slate-950 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20 transition transform hover:-translate-y-0.5" type="submit" disabled={!canSubmitLogin || isSubmitting}>
+                    {isSubmitting ? 'Logging in…' : 'Log in'}
+                  </button>
+
+                  <p className="text-slate-400 text-sm mt-2">
+                    Need an account?{' '}
+                    <button type="button" className="bg-none border-none text-blue-300 font-bold cursor-pointer p-0 hover:text-blue-200 transition" onClick={() => setStepAndClear('register')}>
+                      Sign up
+                    </button>
+                  </p>
+                </form>
+              )}
+            </section>
+          </div>
+        ) : currentUserRole === 'ADMIN' ? (
+          <AdminDashboard
+            authToken={authToken}
+            currentUserName={currentUserName}
+            onLogout={handleLogout}
+          />
+        ) : (
+          <div className="flex flex-col gap-4 min-h-[70vh]">
+            <div className="flex justify-between items-center gap-3">
+              <div className="grid gap-2.5">
+                <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-500/15 text-blue-200 text-xs font-bold uppercase tracking-wider w-fit">Live Map</div>
+                <h2 className="text-3xl lg:text-4xl font-bold leading-tight text-white">Welcome{currentUserEmail ? `, ${currentUserEmail}` : ''}!</h2>
               </div>
+              <button className="px-4 py-2 rounded-lg border border-white/15 bg-white/5 text-white font-bold hover:bg-white/10 transition transform hover:-translate-y-0.5" type="button" onClick={handleLogout}>
+                Log out
+              </button>
             </div>
-          ))}
+
+            <div className="flex-1 relative min-h-96 rounded-lg border border-white/10 bg-white/3 overflow-hidden">
+              <LiveMap
+                userId={currentUserId}
+                userName={currentUserName || currentUserEmail.split('@')[0] || 'Student'}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
