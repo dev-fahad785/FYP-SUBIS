@@ -1,3 +1,4 @@
+import React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
 import TransitMap from './TransitMap';
@@ -529,7 +530,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
     <div className="admin-dashboard">
       <div className="dashboard-header">
         <div>
-          <p className="eyebrow">SUBIS · Admin Console</p>
+          <p className="eyebrow bg-red-900">SUBIS · Admin Console</p>
           <h2>Welcome back, {currentUserName || 'Admin'}</h2>
           <p className="lede">
             Monitor fleet activity, review telemetry, and keep route data current from a single workspace.
