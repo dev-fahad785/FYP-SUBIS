@@ -39,7 +39,7 @@ function BarChart({ points = [] }) {
       {points.map((point) => (
         <div key={point.label} className="grid gap-2 justify-items-center h-full">
           <div
-            className="w-full rounded-t-xl bg-gradient-to-t from-blue-600 to-blue-400"
+            className="w-full rounded-t-xl bg-linear-to-t from-blue-600 to-blue-400"
             style={{ height: `${Math.max((point.total / maxValue) * 100, point.total ? 12 : 4)}%` }}
             title={`${point.label}: ${point.total}`}
           />
@@ -571,26 +571,26 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
       {activeTab === 'overview' && (
         <section className="grid gap-4">
           <div className="grid grid-cols-4 gap-3">
-            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
+            <article className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
               <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Active buses</span>
               <strong className="text-3xl text-white">{overview?.summary?.activeBusCount ?? '--'}</strong>
             </article>
-            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
+            <article className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
               <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Active routes</span>
               <strong className="text-3xl text-white">{overview?.summary?.routeCount ?? '--'}</strong>
             </article>
-            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
+            <article className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
               <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Configured stops</span>
               <strong className="text-3xl text-white">{overview?.summary?.stopCount ?? '--'}</strong>
             </article>
-            <article className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
+            <article className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-2">
               <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Telemetry records</span>
               <strong className="text-3xl text-white">{overview?.summary?.telemetryCount ?? '--'}</strong>
             </article>
           </div>
 
           <div className="grid lg:grid-cols-[1.7fr_1fr] gap-4">
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 min-h-96 flex flex-col">
+            <div className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/60 to-slate-950/60 p-4 min-h-96 flex flex-col">
               <div className="flex justify-between items-start gap-3 mb-4">
                 <div>
                   <h3 className="text-lg font-bold text-white">Operations map</h3>
@@ -610,7 +610,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               )}
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
+            <div className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
               <div>
                 <h3 className="text-lg font-bold text-white">Active alerts</h3>
                 <p className="text-slate-400 text-sm">Stale bus pings and crowd conditions needing attention.</p>
@@ -660,7 +660,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
       {activeTab === 'routes' && (
         <section className="grid gap-4">
           <div className="grid lg:grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
+            <div className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
               <div>
                 <h3 className="text-lg font-bold text-white">Route manager</h3>
                 <p className="text-slate-400 text-sm">Create routes, update route details, and adjust stop coordinates.</p>
@@ -689,7 +689,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                     />
                   </label>
                 </div>
-                <button className="px-4 py-2 rounded-lg font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-slate-950 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20 transition" type="submit" disabled={loadingState.saving}>
+                <button className="px-4 py-2 rounded-lg font-bold bg-linear-to-r from-blue-500 to-blue-600 text-slate-950 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20 transition" type="submit" disabled={loadingState.saving}>
                   {loadingState.saving ? 'Saving…' : 'Create route'}
                 </button>
               </form>
@@ -886,7 +886,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                         Delete stop
                       </button>
                     )}
-                    <button className="flex-1 px-3 py-2 rounded-lg font-bold text-sm bg-gradient-to-r from-blue-500 to-blue-600 text-slate-950 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20 transition" type="submit" disabled={loadingState.saving}>
+                    <button className="flex-1 px-3 py-2 rounded-lg font-bold text-sm bg-linear-to-r from-blue-500 to-blue-600 text-slate-950 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20 transition" type="submit" disabled={loadingState.saving}>
                       {stopForm.stopId ? 'Update stop' : 'Add stop'}
                     </button>
                   </div>
@@ -894,7 +894,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
+            <div className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
               <div>
                 <h3 className="text-lg font-bold text-white">Route map editor</h3>
                 <p className="text-slate-400 text-sm">Lightweight coordinate editing for the selected route.</p>
@@ -943,7 +943,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
       {activeTab === 'analytics' && (
         <section className="grid gap-4">
           <div className="grid lg:grid-cols-[1.5fr_1fr] gap-4">
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
+            <div className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
               <div className="flex justify-between items-start gap-3">
                 <div>
                   <h3 className="text-lg font-bold text-white">Usage analytics</h3>
@@ -1009,7 +1009,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
               )}
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
+            <div className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4 content-start">
               <div>
                 <h3 className="text-lg font-bold text-white">Crowded-stop heatmap input</h3>
                 <p className="text-slate-400 text-sm">Ranked stops for crowd hotspots and operator attention.</p>
@@ -1025,7 +1025,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
                       <span className="text-white text-xs font-bold">{item.crowdLevel}</span>
                     </div>
                     <div className="h-2 rounded-full bg-slate-700 overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-amber-500 to-red-500" style={{ width: `${item.intensity * 100}%` }} />
+                      <div className="h-full bg-linear-to-r from-amber-500 to-red-500" style={{ width: `${item.intensity * 100}%` }} />
                     </div>
                   </article>
                 ))}
@@ -1033,7 +1033,7 @@ export default function AdminDashboard({ authToken, currentUserName, onLogout })
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4">
+          <div className="rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/60 to-slate-950/60 p-4 grid gap-4">
             <div className="flex justify-between items-start gap-3">
               <div>
                 <h3 className="text-lg font-bold text-white">Telemetry logs</h3>
