@@ -1,22 +1,32 @@
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { randomInt } from 'crypto';
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { RedisService } from '../redis/redis.service';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly MAX_OTP_ATTEMPTS = Number(process.env.MAX_OTP_ATTEMPTS ?? 5);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
     private emailService: EmailService,
+    private redisService: RedisService,
   ) {}
 
-  //register user, hash password, generate OTP, save to DB, send OTP email
+  /**
+   * Register user, hash password, generate OTP, store to Redis, send OTP email
+   */
   async register(dto: RegisterDto) {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -27,24 +37,32 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
-    const otp = randomInt(100000, 999999).toString();
-    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+    const plainOtp = randomInt(100000, 999999).toString();
+    const hashedOtp = await bcrypt.hash(plainOtp, 10);
+
+    // Create user with isVerified=false
     const user = await this.prisma.user.create({
       data: {
         name: dto.name,
         email: dto.email,
         role: dto.role,
         passwordHash: hashedPassword,
-        otp,
-        otpExpiry,
+        // Note: otp and otpExpiry fields can remain null; they're stored in Redis now but before they were in the database.
       },
     });
 
-    await this.emailService.sendOtp(user.email, otp);
+    // Store hashed OTP in Redis with 5-minute TTL
+    await this.redisService.setOtp(dto.email, hashedOtp, 300);
+
+    // Send plain OTP via email
+    await this.emailService.sendOtp(user.email, plainOtp);
+
     return { message: 'User registered. Verify OTP.' };
   }
 
-  //login user and return JWT
+  /**
+   * Login user and return JWT
+   */
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -72,7 +90,10 @@ export class AuthService {
     };
   }
 
-  //verify OTP and activate account
+  /**
+   * Verify OTP and activate account
+   * Uses Redis for OTP storage and attempt tracking
+   */
   async verifyOtp(dto: VerifyOtpDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -82,23 +103,47 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email');
     }
 
-    if (user.otp !== dto.otp) {
+    // Check attempt count and throttle if exceeded
+    const attempts = await this.redisService.getAttempts(dto.email);
+    if (attempts >= this.MAX_OTP_ATTEMPTS) {
+      throw new UnauthorizedException(
+        `Too many OTP verification attempts. Try again later.`,
+      );
+    }
+
+    const storedHashedOtp = await this.redisService.getOtp(dto.email);
+
+    if (!storedHashedOtp) {
+      throw new UnauthorizedException('Invalid or expired OTP');
+    }
+
+    // Compare provided OTP with stored hash
+    const isOtpValid = await bcrypt.compare(dto.otp, storedHashedOtp);
+
+    if (!isOtpValid) {
+      // Increment attempt counter and check limit
+      const newAttempts = await this.redisService.incrementAttempts(dto.email);
+      if (newAttempts >= this.MAX_OTP_ATTEMPTS) {
+        throw new UnauthorizedException(
+          `Too many OTP verification attempts. Try again later.`,
+        );
+      }
       throw new UnauthorizedException('Invalid OTP');
     }
 
-    if (!user.otpExpiry || user.otpExpiry < new Date()) {
-      throw new UnauthorizedException('OTP expired');
-    }
-
+    // OTP is valid: mark user as verified and reset attempts
+    await this.redisService.deleteOtp(dto.email);
     await this.prisma.user.update({
       where: { email: dto.email },
       data: {
         isVerified: true,
-        otp: null,
-        otpExpiry: null,
+        // Keep otp and otpExpiry as null (or remove them in a future migration)
       },
     });
+
+    await this.redisService.resetAttempts(dto.email);
 
     return { message: 'Account verified successfully' };
   }
 }
+
