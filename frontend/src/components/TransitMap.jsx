@@ -7,6 +7,7 @@ import {
   Polyline,
   TileLayer,
   useMap,
+  useMapEvents,
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -81,6 +82,64 @@ function ResizeMap() {
   return null;
 }
 
+function MapClickHandler({ onMapClick }) {
+  useMapEvents({
+    click(event) {
+      onMapClick?.(event.latlng);
+    },
+  });
+
+  return null;
+}
+
+function FitMapToContent({ routes, searchResults, selectedPoint, center, zoom }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const points = [];
+
+    routes.forEach((route) => {
+      (route.stops || []).forEach((stop) => {
+        points.push([stop.latitude, stop.longitude]);
+      });
+
+      if (Array.isArray(route.polyline)) {
+        route.polyline.forEach((point) => {
+          if (Array.isArray(point) && point.length === 2) {
+            points.push(point);
+          }
+        });
+      }
+    });
+
+    searchResults.forEach((result) => {
+      points.push([result.latitude, result.longitude]);
+    });
+
+    if (
+      selectedPoint &&
+      typeof selectedPoint.latitude === 'number' &&
+      typeof selectedPoint.longitude === 'number'
+    ) {
+      points.push([selectedPoint.latitude, selectedPoint.longitude]);
+    }
+
+    if (points.length > 1) {
+      map.fitBounds(points, { padding: [32, 32] });
+      return;
+    }
+
+    if (points.length === 1) {
+      map.setView(points[0], Math.max(zoom, 15));
+      return;
+    }
+
+    map.setView(center, zoom);
+  }, [center, map, routes, searchResults, selectedPoint, zoom]);
+
+  return null;
+}
+
 export default function TransitMap({
   routes = [],
   buses = [],
@@ -90,11 +149,24 @@ export default function TransitMap({
   className = '',
   onBusSelect,
   highlightedBusIds = [],
+  selectedPoint = null,
+  searchResults = [],
+  highlightedSearchResultId = '',
+  onSearchResultSelect,
+  onMapClick,
 }) {
   return (
     <div className={`transit-map-shell ${className}`.trim()}>
       <MapContainer center={center} zoom={zoom} className="transit-map">
         <ResizeMap />
+        <MapClickHandler onMapClick={onMapClick} />
+        <FitMapToContent
+          routes={routes}
+          searchResults={searchResults}
+          selectedPoint={selectedPoint}
+          center={center}
+          zoom={zoom}
+        />
         <TileLayer
           attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -102,10 +174,15 @@ export default function TransitMap({
         {/* Draw routes as colored polylines and stops */}
         {routes.map((route) => (
           <div key={route.id}>
-            {Array.isArray(route.polyline) && route.polyline.length > 0 && (
+            {((Array.isArray(route.polyline) && route.polyline.length > 0) ||
+              (route.stops || []).length > 1) && (
               <Polyline
-                positions={route.polyline}
-                pathOptions={{ color: route.color, weight: 4, opacity: 0.85 }}
+                positions={
+                  Array.isArray(route.polyline) && route.polyline.length > 0
+                    ? route.polyline
+                    : (route.stops || []).map((stop) => [stop.latitude, stop.longitude])
+                }
+                pathOptions={{ color: route.color || '#3B82F6', weight: 4, opacity: 0.85 }}
               />
             )}
             {(route.stops || []).map((stop) => (
@@ -180,6 +257,35 @@ export default function TransitMap({
             </Marker>
           );
         })}
+        {searchResults.map((result) => (
+          <Marker
+            key={result.id}
+            position={[result.latitude, result.longitude]}
+            eventHandlers={{
+              click: () => {
+                onSearchResultSelect?.(result);
+              },
+            }}
+            opacity={highlightedSearchResultId && highlightedSearchResultId !== result.id ? 0.65 : 1}
+          >
+            <Popup>
+              <strong>{result.label}</strong>
+              <div>
+                {result.latitude.toFixed(5)}, {result.longitude.toFixed(5)}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+        {selectedPoint && (
+          <Marker position={[selectedPoint.latitude, selectedPoint.longitude]}>
+            <Popup>
+              <strong>Selected point</strong>
+              <div>
+                {selectedPoint.latitude.toFixed(5)}, {selectedPoint.longitude.toFixed(5)}
+              </div>
+            </Popup>
+          </Marker>
+        )}
         {/* Show student locations */}
         {students.map((student) => (
           <Marker
