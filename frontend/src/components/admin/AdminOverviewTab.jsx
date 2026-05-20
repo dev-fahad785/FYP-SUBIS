@@ -1,5 +1,5 @@
 import React from 'react';
-import TransitMap from '../TransitMap';
+import TransitMap from '../transit-map';
 
 function OverviewStatCard({ label, value }) {
   return (

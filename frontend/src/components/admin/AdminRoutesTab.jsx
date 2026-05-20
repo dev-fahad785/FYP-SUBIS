@@ -1,6 +1,7 @@
 import React from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import TransitMap from '../TransitMap';
+import TransitMap from '../transit-map';
+import RouteEditorModal from './routes-tab/RouteEditorModal';
 
 function IconButton({ label, onClick, children, className = '' }) {
   return (
@@ -292,280 +293,28 @@ export default function AdminRoutesTab({
         </div>
       </div>
 
-      {editingRoute && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm p-4 md:p-8 overflow-y-auto">
-          <div className="max-w-7xl mx-auto rounded-3xl border border-white/10 bg-slate-950 shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4">
-              <div>
-                <p className="text-blue-300 text-xs font-bold uppercase tracking-[0.18em]">Route editor</p>
-                <h3 className="text-xl font-bold text-white mt-1">{editingRoute.name}</h3>
-              </div>
-              <button
-                type="button"
-                className="px-4 py-2 rounded-lg border border-white/10 bg-white/5 text-white text-sm font-bold hover:bg-white/10 transition"
-                onClick={closeRouteEditor}
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="grid xl:grid-cols-[28rem_1fr] gap-0">
-              <div className="p-6 border-b xl:border-b-0 xl:border-r border-white/10 grid gap-6 content-start max-h-[calc(100vh-8rem)] overflow-y-auto">
-                <form className="grid gap-4" onSubmit={handleRouteSave}>
-                  <div>
-                    <h4 className="text-base font-bold text-white">Route details</h4>
-                    <p className="text-slate-400 text-sm mt-1">Update the route name and color from here.</p>
-                  </div>
-
-                  <div className="grid grid-cols-[1fr_auto] gap-3">
-                    <label className="grid gap-1.5">
-                      <span className="text-slate-300 text-xs font-bold uppercase">Route name</span>
-                      <input
-                        type="text"
-                        value={editRouteForm.name}
-                        onChange={(event) =>
-                          setEditRouteForm((current) => ({
-                            ...current,
-                            name: event.target.value,
-                          }))
-                        }
-                        className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
-                        required
-                      />
-                    </label>
-                    <label className="grid gap-1.5">
-                      <span className="text-slate-300 text-xs font-bold uppercase">Color</span>
-                      <input
-                        type="color"
-                        value={editRouteForm.color}
-                        onChange={(event) =>
-                          setEditRouteForm((current) => ({
-                            ...current,
-                            color: event.target.value,
-                          }))
-                        }
-                        className="rounded-lg h-10 cursor-pointer"
-                      />
-                    </label>
-                  </div>
-
-                  <button
-                    className="px-4 py-2 rounded-lg font-bold bg-linear-to-r from-blue-500 to-blue-600 text-slate-950 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20 transition"
-                    type="submit"
-                    disabled={loadingState.saving}
-                  >
-                    {loadingState.saving ? 'Saving…' : 'Save route details'}
-                  </button>
-                </form>
-
-                <div className="rounded-2xl border border-white/10 bg-white/4 p-4 grid gap-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="text-base font-bold text-white">Stops in this route</h4>
-                      <p className="text-slate-400 text-sm mt-1">Add a stop, edit an existing one, or delete the selected stop.</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-white text-xs font-bold hover:bg-white/10 transition"
-                      onClick={handleAddNewStop}
-                    >
-                      Add new stop
-                    </button>
-                  </div>
-
-                  <form className="grid gap-3" onSubmit={onStopSubmit}>
-                    <label className="grid gap-1.5">
-                      <span className="text-slate-300 text-xs font-bold uppercase">Route</span>
-                      <input
-                        type="text"
-                        value={editingRoute.name}
-                        className="rounded-lg border border-white/10 bg-white/5 text-slate-300 p-2 text-sm"
-                        readOnly
-                      />
-                    </label>
-
-                    <div className="rounded-lg border border-white/10 bg-white/3 p-3 grid gap-2">
-                      <div>
-                        <h5 className="text-sm font-bold text-white">Search location</h5>
-                        <p className="text-slate-400 text-xs mt-1">Find a place name and use its coordinates for this stop.</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={locationQuery}
-                          onChange={(event) => setLocationQuery(event.target.value)}
-                          placeholder="Search campus gate, department, street, or landmark"
-                          className="flex-1 rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                              onLocationSearch(event);
-                            }
-                          }}
-                        />
-                        <button
-                          className="px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-white text-sm font-bold hover:bg-white/10 transition disabled:opacity-50"
-                          type="button"
-                          onClick={onLocationSearch}
-                          disabled={loadingState.geocoding}
-                        >
-                          {loadingState.geocoding ? 'Searching…' : 'Search'}
-                        </button>
-                      </div>
-                      {locationResults.length > 0 && (
-                        <div className="grid gap-1 max-h-32 overflow-y-auto">
-                          {locationResults.map((result) => (
-                            <button
-                              key={result.id}
-                              type="button"
-                              className={`text-left rounded-lg p-2 text-xs transition ${
-                                selectedLocationResultId === result.id
-                                  ? 'bg-amber-500/20 border border-amber-500/45'
-                                  : 'border border-white/10 bg-white/5 hover:bg-white/10'
-                              }`}
-                              onClick={() => onLocationResultSelect(result)}
-                            >
-                              <strong className="text-white block">{result.label}</strong>
-                              <span className="text-slate-400">
-                                {result.latitude.toFixed(5)}, {result.longitude.toFixed(5)}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="grid gap-1.5">
-                        <span className="text-slate-300 text-xs font-bold uppercase">Stop name</span>
-                        <input
-                          type="text"
-                          value={stopForm.name}
-                          onChange={(event) => setStopForm((current) => ({ ...current, name: event.target.value }))}
-                          placeholder="Main Gate"
-                          className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm placeholder-white/40 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
-                          required
-                        />
-                      </label>
-                      <label className="grid gap-1.5">
-                        <span className="text-slate-300 text-xs font-bold uppercase">Order</span>
-                        <input
-                          type="number"
-                          min="1"
-                          value={stopForm.order}
-                          onChange={(event) => setStopForm((current) => ({ ...current, order: event.target.value }))}
-                          className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
-                          required
-                        />
-                      </label>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="grid gap-1.5">
-                        <span className="text-slate-300 text-xs font-bold uppercase">Latitude</span>
-                        <input
-                          type="number"
-                          step="0.000001"
-                          value={stopForm.latitude}
-                          onChange={(event) => setStopForm((current) => ({ ...current, latitude: event.target.value }))}
-                          className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
-                          required
-                        />
-                      </label>
-                      <label className="grid gap-1.5">
-                        <span className="text-slate-300 text-xs font-bold uppercase">Longitude</span>
-                        <input
-                          type="number"
-                          step="0.000001"
-                          value={stopForm.longitude}
-                          onChange={(event) => setStopForm((current) => ({ ...current, longitude: event.target.value }))}
-                          className="rounded-lg border border-white/10 bg-white/5 text-white p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition"
-                          required
-                        />
-                      </label>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        className="flex-1 px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-white text-sm font-bold hover:bg-white/10 transition"
-                        type="button"
-                        onClick={handleAddNewStop}
-                      >
-                        Clear form
-                      </button>
-                      {stopForm.stopId && (
-                        <button
-                          className="flex-1 px-3 py-2 rounded-lg text-red-200 border border-red-500/45 bg-red-500/12 text-sm font-bold hover:bg-red-500/18 transition disabled:opacity-50"
-                          type="button"
-                          onClick={onStopDelete}
-                          disabled={loadingState.saving}
-                        >
-                          Delete stop
-                        </button>
-                      )}
-                      <button
-                        className="flex-1 px-3 py-2 rounded-lg font-bold text-sm bg-linear-to-r from-blue-500 to-blue-600 text-slate-950 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-blue-500/20 transition"
-                        type="submit"
-                        disabled={loadingState.saving}
-                      >
-                        {stopForm.stopId ? 'Update stop' : 'Add stop'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-
-              <div className="p-6 grid gap-4 content-start bg-linear-to-br from-slate-950 to-slate-900">
-                <div>
-                  <h4 className="text-base font-bold text-white">Map and available stops</h4>
-                  <p className="text-slate-400 text-sm mt-1">Click the map or a search result to fill stop coordinates for this route.</p>
-                </div>
-
-                <div className="rounded-lg overflow-hidden border border-white/10 bg-slate-950/50 min-h-[26rem]">
-                  <TransitMap
-                    key={`route-editor-map-${editingRoute.id}`}
-                    routes={[editingRoute]}
-                    buses={[]}
-                    selectedPoint={selectedPoint}
-                    searchResults={locationResults}
-                    highlightedSearchResultId={selectedLocationResultId}
-                    onSearchResultSelect={onLocationResultSelect}
-                    onMapClick={onMapSelect}
-                  />
-                </div>
-
-                <div className="grid gap-2 max-h-72 overflow-y-auto">
-                  {(editingRoute.stops || []).map((stop) => (
-                    <button
-                      key={stop.id}
-                      type="button"
-                      className={`text-left rounded-xl p-3 border transition ${
-                        stopForm.stopId === stop.id
-                          ? 'border-blue-500/45 bg-blue-500/15'
-                          : 'border-white/10 bg-white/5 hover:bg-white/10'
-                      }`}
-                      onClick={() => handleStopPickForRoute(stop)}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <strong className="text-white text-sm">{stop.name}</strong>
-                        <span className="text-slate-400 text-xs">#{stop.order}</span>
-                      </div>
-                      <span className="text-slate-400 text-xs block mt-1">
-                        {stop.latitude.toFixed(5)}, {stop.longitude.toFixed(5)}
-                      </span>
-                    </button>
-                  ))}
-
-                  {!editingRoute.stops?.length && (
-                    <div className="rounded-xl border border-dashed border-white/10 bg-white/3 p-6 text-center text-slate-400 text-sm">
-                      No stops configured for this route yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <RouteEditorModal
+        editingRoute={editingRoute}
+        editRouteForm={editRouteForm}
+        setEditRouteForm={setEditRouteForm}
+        loadingState={loadingState}
+        closeRouteEditor={closeRouteEditor}
+        handleRouteSave={handleRouteSave}
+        handleAddNewStop={handleAddNewStop}
+        onStopSubmit={onStopSubmit}
+        stopForm={stopForm}
+        setStopForm={setStopForm}
+        locationQuery={locationQuery}
+        setLocationQuery={setLocationQuery}
+        onLocationSearch={onLocationSearch}
+        locationResults={locationResults}
+        selectedLocationResultId={selectedLocationResultId}
+        onLocationResultSelect={onLocationResultSelect}
+        onStopDelete={onStopDelete}
+        selectedPoint={selectedPoint}
+        onMapSelect={onMapSelect}
+        handleStopPickForRoute={handleStopPickForRoute}
+      />
     </section>
   );
 }
