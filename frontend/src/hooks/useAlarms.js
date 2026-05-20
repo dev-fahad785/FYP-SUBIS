@@ -4,6 +4,7 @@ export function useAlarms(buses) {
   const audioRef = useRef(null);
   const [armedBuses, setArmedBuses] = useState({});
   const [activeAlarms, setActiveAlarms] = useState({});
+  const [mutedBuses, setMutedBuses] = useState({});
 
   useEffect(() => {
     try {
@@ -38,7 +39,7 @@ export function useAlarms(buses) {
         typeof prevEta?.estimatedMinutes === 'number' ? prevEta.estimatedMinutes : null;
       const shouldTrigger = isAtPrevStop || (prevMinutes !== null && prevMinutes <= 1);
 
-      if (shouldTrigger && !activeAlarms[busId]) {
+      if (shouldTrigger && !activeAlarms[busId] && !mutedBuses[busId]) {
         try {
           audioRef.current?.play().catch(() => null);
         } catch {}
@@ -49,15 +50,25 @@ export function useAlarms(buses) {
           });
         }
       }
+
+      if (!shouldTrigger && mutedBuses[busId]) {
+        setMutedBuses((current) => {
+          const next = { ...current };
+          delete next[busId];
+          return next;
+        });
+      }
     }
-  }, [buses, armedBuses, activeAlarms]);
+  }, [buses, armedBuses, activeAlarms, mutedBuses]);
 
   const toggleArmForBus = (bus, searchStartStop) => {
     const busId = bus?.busId || bus?.id || '';
     if (!busId) return;
+
+    const isArmed = Boolean(armedBuses[busId]);
     setArmedBuses((current) => {
       const next = { ...current };
-      if (next[busId]) {
+      if (isArmed) {
         delete next[busId];
       } else if (searchStartStop?.trim()) {
         next[busId] = searchStartStop.trim();
@@ -66,6 +77,19 @@ export function useAlarms(buses) {
       }
       return next;
     });
+
+    if (isArmed) {
+      setMutedBuses((current) => {
+        const next = { ...current };
+        delete next[busId];
+        return next;
+      });
+      setActiveAlarms((current) => {
+        const next = { ...current };
+        delete next[busId];
+        return next;
+      });
+    }
   };
 
   const stopAlarm = (busId) => {
@@ -74,6 +98,10 @@ export function useAlarms(buses) {
       delete next[busId];
       return next;
     });
+    setMutedBuses((current) => ({
+      ...current,
+      [busId]: true,
+    }));
     try {
       audioRef.current?.pause();
       if (audioRef.current) audioRef.current.currentTime = 0;
