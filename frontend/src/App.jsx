@@ -224,6 +224,16 @@ function App() {
 
   const isAuthStep = step !== 'home';
 
+  if (!isAuthStep && currentUserRole !== 'ADMIN') {
+    return (
+      <LiveMap
+        userId={currentUserId}
+        userName={currentUserName || currentUserEmail.split('@')[0] || 'Student'}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   const lede = {
     register:
       'Sign up to access the student bus information system. We will email you a 6-digit code to verify your account.',
@@ -423,31 +433,12 @@ function App() {
               )}
             </section>
           </div>
-        ) : currentUserRole === 'ADMIN' ? (
+        ) : currentUserRole === 'ADMIN' && (
           <AdminDashboard
             authToken={authToken}
             currentUserName={currentUserName}
             onLogout={handleLogout}
           />
-        ) : (
-          <div className="flex flex-col gap-4 min-h-[70vh]">
-            <div className="flex justify-between items-center gap-3">
-              <div className="grid gap-2.5">
-                <div className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-500/15 text-blue-200 text-xs font-bold uppercase tracking-wider w-fit">Live Map</div>
-                <h2 className="text-3xl lg:text-4xl font-bold leading-tight text-white">Welcome{currentUserEmail ? `, ${currentUserEmail}` : ''}!</h2>
-              </div>
-              <button className="px-4 py-2 rounded-lg border border-white/15 bg-white/5 text-white font-bold hover:bg-white/10 transition transform hover:-translate-y-0.5" type="button" onClick={handleLogout}>
-                Log out
-              </button>
-            </div>
-
-            <div className="flex-1 relative min-h-96 rounded-lg border border-white/10 bg-white/3 overflow-hidden">
-              <LiveMap
-                userId={currentUserId}
-                userName={currentUserName || currentUserEmail.split('@')[0] || 'Student'}
-              />
-            </div>
-          </div>
         )}
       </div>
     </div>

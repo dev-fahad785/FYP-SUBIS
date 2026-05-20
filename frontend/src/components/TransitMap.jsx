@@ -92,23 +92,31 @@ function MapClickHandler({ onMapClick }) {
   return null;
 }
 
-function FitMapToContent({ routes, searchResults, selectedPoint, center, zoom }) {
+function FitMapToContent({ routes, buses, searchResults, selectedPoint, center, zoom, fitToBusesOnly = false }) {
   const map = useMap();
 
   useEffect(() => {
     const points = [];
 
-    routes.forEach((route) => {
-      (route.stops || []).forEach((stop) => {
-        points.push([stop.latitude, stop.longitude]);
-      });
-
-      if (Array.isArray(route.polyline)) {
-        route.polyline.forEach((point) => {
-          if (Array.isArray(point) && point.length === 2) {
-            points.push(point);
-          }
+    if (!fitToBusesOnly) {
+      routes.forEach((route) => {
+        (route.stops || []).forEach((stop) => {
+          points.push([stop.latitude, stop.longitude]);
         });
+
+        if (Array.isArray(route.polyline)) {
+          route.polyline.forEach((point) => {
+            if (Array.isArray(point) && point.length === 2) {
+              points.push(point);
+            }
+          });
+        }
+      });
+    }
+
+    buses.forEach((bus) => {
+      if (typeof bus.latitude === 'number' && typeof bus.longitude === 'number') {
+        points.push([bus.latitude, bus.longitude]);
       }
     });
 
@@ -135,7 +143,7 @@ function FitMapToContent({ routes, searchResults, selectedPoint, center, zoom })
     }
 
     map.setView(center, zoom);
-  }, [center, map, routes, searchResults, selectedPoint, zoom]);
+  }, [buses, center, fitToBusesOnly, map, routes, searchResults, selectedPoint, zoom]);
 
   return null;
 }
@@ -154,6 +162,9 @@ export default function TransitMap({
   highlightedSearchResultId = '',
   onSearchResultSelect,
   onMapClick,
+  hideRoutes = false,
+  hideStops = false,
+  fitToBusesOnly = false,
 }) {
   return (
     <div className={`transit-map-shell ${className}`.trim()}>
@@ -162,10 +173,12 @@ export default function TransitMap({
         <MapClickHandler onMapClick={onMapClick} />
         <FitMapToContent
           routes={routes}
+          buses={buses}
           searchResults={searchResults}
           selectedPoint={selectedPoint}
           center={center}
           zoom={zoom}
+          fitToBusesOnly={fitToBusesOnly}
         />
         <TileLayer
           attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -174,18 +187,19 @@ export default function TransitMap({
         {/* Draw routes as colored polylines and stops */}
         {routes.map((route) => (
           <div key={route.id}>
-            {((Array.isArray(route.polyline) && route.polyline.length > 0) ||
-              (route.stops || []).length > 1) && (
-              <Polyline
-                positions={
-                  Array.isArray(route.polyline) && route.polyline.length > 0
-                    ? route.polyline
-                    : (route.stops || []).map((stop) => [stop.latitude, stop.longitude])
-                }
-                pathOptions={{ color: route.color || '#3B82F6', weight: 4, opacity: 0.85 }}
-              />
-            )}
-            {(route.stops || []).map((stop) => (
+            {!hideRoutes &&
+              ((Array.isArray(route.polyline) && route.polyline.length > 0) ||
+                (route.stops || []).length > 1) && (
+                <Polyline
+                  positions={
+                    Array.isArray(route.polyline) && route.polyline.length > 0
+                      ? route.polyline
+                      : (route.stops || []).map((stop) => [stop.latitude, stop.longitude])
+                  }
+                  pathOptions={{ color: route.color || '#3B82F6', weight: 4, opacity: 0.85 }}
+                />
+              )}
+            {!hideStops && (route.stops || []).map((stop) => (
               <Marker
                 key={stop.id}
                 position={[stop.latitude, stop.longitude]}

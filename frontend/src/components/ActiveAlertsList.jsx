@@ -2,23 +2,23 @@ export default function ActiveAlertsList({ alerts, onClear }) {
   if (!alerts.length) return null;
 
   return (
-    <div className="mt-5">
-      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+    <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4">
+      <h4 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
         Active alerts
       </h4>
-      <div className="space-y-2">
+      <div className="space-y-3">
         {alerts.map((alert) => (
           <div
             key={alert.id}
-            className="p-3 bg-gray-800/70 border border-gray-700 rounded-lg"
+            className="rounded-[20px] border border-white/10 bg-[#09131d] p-3"
           >
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="mb-2 flex items-center justify-between gap-3">
               <strong className="text-white text-sm">{alert.routeName}</strong>
-              <span className="text-xs px-2 py-0.5 bg-gray-700 text-gray-300 rounded-full">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-300">
                 {alert.startStopName}
               </span>
             </div>
-            <div className="text-xs text-gray-400 space-y-0.5 mb-2">
+            <div className="mb-3 space-y-1 text-xs text-slate-400">
               <div>Trigger: {alert.triggerStopName}</div>
               <div>
                 {alert.triggeredBusIds?.length > 0
@@ -28,7 +28,7 @@ export default function ActiveAlertsList({ alerts, onClear }) {
             </div>
             <button
               type="button"
-              className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-md transition-colors"
+              className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/10"
               onClick={() => onClear(alert.id)}
             >
               Clear
