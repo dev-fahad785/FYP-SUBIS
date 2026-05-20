@@ -15,17 +15,22 @@ export default function BusListItem({
 
   return (
     <div
-      className={`p-3 rounded-lg border cursor-pointer transition-all ${
+      className={`cursor-pointer rounded-[22px] border p-4 transition-all ${
         isSelected
-          ? 'border-blue-500 bg-blue-950/30'
-          : 'border-gray-700 bg-gray-800/50 hover:border-gray-600 hover:bg-gray-800'
+          ? 'border-cyan-300/40 bg-cyan-300/10 shadow-[0_10px_24px_rgba(34,211,238,0.08)]'
+          : 'border-white/10 bg-white/[0.04] hover:border-white/20 hover:bg-white/[0.07]'
       }`}
       onClick={onSelect}
     >
-      <div className="flex items-center justify-between mb-2">
-        <strong className="text-white text-sm">{bus.plateNumber || busId}</strong>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <strong className="text-sm text-white">{bus.plateNumber || busId}</strong>
+          <div className="mt-1 text-xs text-slate-400">
+            {bus.currentStop || bus.nextStop || 'Bus is in motion'}
+          </div>
+        </div>
         <span
-          className="text-xs px-2 py-0.5 rounded-full font-medium"
+          className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
           style={
             bus.routeColor
               ? { backgroundColor: `${bus.routeColor}26`, color: bus.routeColor, border: `1px solid ${bus.routeColor}40` }
@@ -36,46 +41,42 @@ export default function BusListItem({
         </span>
       </div>
 
-      <div className="space-y-1 text-xs text-gray-400 mb-2.5">
-        {bus.currentStop && (
-          <div className="flex items-center gap-1">
-            <span>📍</span>
-            <span>{bus.currentStop}</span>
+      <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded-2xl border border-white/8 bg-[#09131d] px-3 py-2">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">ETA</div>
+          <div className={`mt-1 font-semibold ${etaMinutes !== null ? 'text-white' : 'text-slate-400'}`}>
+            {etaMinutes !== null ? `${etaMinutes} min` : 'Unavailable'}
           </div>
-        )}
-        <div className="flex items-center gap-1">
-          <span>⏱</span>
-          <span>
-            ETA to {searchStartStop || 'start stop'}:{' '}
-            <span className={etaMinutes !== null ? 'text-white font-medium' : ''}>
-              {etaMinutes !== null ? `${etaMinutes} min` : 'Not available'}
-            </span>
-          </span>
+          <div className="mt-1 text-[11px] text-slate-500 truncate">
+            to {searchStartStop || 'start stop'}
+          </div>
         </div>
-        {bus.speed && (
-          <div className="flex items-center gap-1">
-            <span>⚡</span>
-            <span>{Math.round(bus.speed)} km/h</span>
+
+        <div className="rounded-2xl border border-white/8 bg-[#09131d] px-3 py-2">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Speed</div>
+          <div className="mt-1 font-semibold text-white">{Math.round(bus.speed || 0)} km/h</div>
+          <div className="mt-1 text-[11px] text-slate-500 truncate">
+            {bus.nextStop ? `Next ${bus.nextStop}` : 'Awaiting stop data'}
           </div>
-        )}
+        </div>
       </div>
 
       <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"
-          className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+          className={`flex-1 rounded-2xl px-3 py-2 text-xs font-semibold transition-colors ${
             armed
-              ? 'bg-red-600 hover:bg-red-700 text-white'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
+              ? 'bg-red-500 text-white hover:bg-red-400'
+              : 'bg-cyan-300 text-slate-950 hover:bg-cyan-200'
           }`}
           onClick={onToggleArm}
         >
-          {armed ? '🔔 Armed' : 'Set alert'}
+          {armed ? 'Alert armed' : 'Set alert'}
         </button>
         {alarming && (
           <button
             type="button"
-            className="text-xs px-3 py-1.5 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium transition-colors"
+            className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/10"
             onClick={onStopAlarm}
           >
             Stop alarm
