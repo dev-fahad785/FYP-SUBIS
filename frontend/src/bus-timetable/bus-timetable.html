@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IUB Transport — Bus Finder</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --green: #00c96e;
+    --green-dim: #00a558;
+    --dark: #0a0f0d;
+    --card: #111a14;
+    --card2: #162019;
+    --border: #1e3328;
+    --muted: #4a7a5a;
+    --text: #d4edd9;
+    --accent: #ffe066;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .mono { font-family: 'Space Mono', monospace; }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,201,110,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,201,110,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+  .glow { box-shadow: 0 0 40px rgba(0,201,110,0.12), 0 0 80px rgba(0,201,110,0.06); }
+  .header-bar {
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,15,13,0.92);
+    backdrop-filter: blur(10px);
+    position: sticky; top: 0; z-index: 50;
+  }
+  select {
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); font-family: 'Syne', sans-serif;
+    outline: none; transition: border-color 0.2s;
+    -webkit-appearance: none; appearance: none; width: 100%;
+  }
+  input[type=text] {
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); font-family: 'Syne', sans-serif;
+    outline: none; transition: border-color 0.2s; width: 100%;
+  }
+  select:focus, input[type=text]:focus { border-color: var(--green); }
+  input[type=text]::placeholder { color: var(--muted); }
+
+  /* Mode toggle */
+  .mode-btn {
+    flex: 1; padding: 9px 12px;
+    font-size: 11px; font-family: 'Space Mono', monospace;
+    font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    border-radius: 8px; cursor: pointer; transition: all 0.18s;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+  }
+  .mode-btn.active {
+    background: rgba(0,201,110,0.15); border-color: var(--green); color: var(--green);
+  }
+
+  .pulse-dot {
+    width: 8px; height: 8px; background: var(--green);
+    border-radius: 50%; animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+
+  .result-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; transition: border-color 0.2s, transform 0.2s;
+    animation: fadeUp 0.3s ease both;
+  }
+  .result-card:hover { border-color: var(--green); transform: translateY(-2px); }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+  .tag {
+    display: inline-block; font-size: 10px;
+    font-family: 'Space Mono', monospace; padding: 2px 8px;
+    border-radius: 4px; text-transform: uppercase;
+    letter-spacing: 0.05em; font-weight: 700;
+  }
+  .tag-morning   { background:rgba(255,224,102,0.15); color:var(--accent);  border:1px solid rgba(255,224,102,0.3); }
+  .tag-afternoon { background:rgba(255,140,0,0.12);   color:#ffaa44;        border:1px solid rgba(255,140,0,0.3); }
+  .tag-evening   { background:rgba(100,80,200,0.15);  color:#b09fff;        border:1px solid rgba(100,80,200,0.3); }
+  .tag-saturday  { background:rgba(0,180,200,0.12);   color:#44ddee;        border:1px solid rgba(0,180,200,0.3); }
+
+  /* Autocomplete */
+  .ac-wrap { position: relative; }
+  .ac-list {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--card2); border: 1px solid var(--green);
+    border-radius: 8px; z-index: 200;
+    max-height: 220px; overflow-y: auto; display: none;
+  }
+  .ac-list.open { display: block; }
+  .ac-item {
+    padding: 9px 14px; font-size: 12px;
+    font-family: 'Space Mono', monospace; color: var(--text);
+    cursor: pointer; border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.kbd-active { background: rgba(0,201,110,0.12); color: var(--green); }
+  .ac-item mark { background: rgba(0,201,110,0.25); color: var(--green); border-radius: 2px; font-style: normal; }
+
+  /* Stop timeline */
+  .stop-timeline { display: flex; flex-direction: column; }
+  .stop-row { display: flex; align-items: flex-start; gap: 10px; position: relative; padding-bottom: 0; }
+  .stop-col { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+  .stop-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 2px solid var(--muted); background: var(--dark);
+    flex-shrink: 0; position: relative; z-index: 1; margin-top: 2px;
+  }
+  .stop-dot.is-from { border-color: var(--green); background: var(--green); }
+  .stop-dot.is-to   { border-color: var(--accent); background: var(--accent); }
+  .stop-line {
+    width: 2px; flex: 1; min-height: 10px;
+    background: var(--border); margin: 2px 0;
+  }
+  .stop-line.active { background: linear-gradient(var(--green), var(--accent)); }
+  .stop-name {
+    font-size: 11px; font-family: 'Space Mono', monospace;
+    color: var(--muted); padding: 2px 0 8px;
+    line-height: 1.4;
+  }
+  .stop-name.is-from { color: var(--green); font-weight: 700; }
+  .stop-name.is-to   { color: var(--accent); font-weight: 700; }
+  .stop-row.outside  { opacity: 0.3; }
+
+  .countdown-badge {
+    font-family: 'Space Mono', monospace; font-size: 12px;
+    background: rgba(0,201,110,0.1); border: 1px solid rgba(0,201,110,0.3);
+    color: var(--green); padding: 4px 12px; border-radius: 6px;
+  }
+  .countdown-badge.soon {
+    background: rgba(255,224,102,0.1); border-color: rgba(255,224,102,0.4);
+    color: var(--accent); animation: blink 1s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.5} }
+
+  .big-time {
+    font-family: 'Space Mono', monospace; font-size: 22px;
+    font-weight: 700; color: var(--green);
+  }
+  .empty-state { text-align: center; padding: 60px 20px; }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--dark); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header-bar px-4 py-3">
+  <div class="max-w-3xl mx-auto flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <rect width="28" height="28" rx="6" fill="rgba(0,201,110,0.12)"/>
+        <path d="M5 10h18M5 10v8a1 1 0 001 1h1m16-9v8a1 1 0 01-1 1h-1m-15 0h14m-14 0a1.5 1.5 0 01-3 0m17 0a1.5 1.5 0 01-3 0" stroke="#00c96e" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M5 10l2-4h14l2 4" stroke="#00c96e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <div class="font-extrabold text-sm" style="color:var(--text);line-height:1.1">IUB TRANSPORT</div>
+        <div class="mono text-xs" style="color:var(--muted)">Bus Finder · w.e.f 20.04.2026</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="pulse-dot"></div>
+      <span class="mono text-xs" style="color:var(--muted)" id="liveClock">--:--</span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="relative z-10 max-w-3xl mx-auto px-4 py-8">
+
+  <div class="mb-8 text-center">
+    <h1 class="text-4xl font-extrabold mb-2" style="color:#fff;letter-spacing:-0.03em">Find Your Bus</h1>
+    <p class="text-sm" style="color:var(--muted)">Islamia University of Bahawalpur · Campus Transport</p>
+  </div>
+
+  <!-- Search Card -->
+  <div class="result-card p-5 mb-6 glow" style="border-color:rgba(0,201,110,0.3)">
+
+    <!-- Mode Toggle -->
+    <div class="flex gap-2 mb-5">
+      <button class="mode-btn active" id="btnCampus" onclick="setMode('campus')">🏫 Campus → Campus</button>
+      <button class="mode-btn" id="btnStop" onclick="setMode('stop')">📍 Stop → Stop</button>
+    </div>
+
+    <!-- ── CAMPUS MODE ── -->
+    <div id="campusMode">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label class="block text-xs mono mb-1" style="color:var(--muted)">FROM CAMPUS</label>
+          <div class="relative">
+            <select id="fromCampus" class="rounded-lg px-3 py-2.5 text-sm pr-8">
+              <option value="">— Select —</option>
+              <option value="AC">Abbasia Campus (AC)</option>
+              <option value="BJC">Baghdad Campus (BJC)</option>
+              <option value="KH_FC">Khawaja Fareed Campus (KH.FC)</option>
+            </select>
+            <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs" style="color:var(--muted)">▾</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs mono mb-1" style="color:var(--muted)">TO CAMPUS</label>
+          <div class="relative">
+            <select id="toCampus" class="rounded-lg px-3 py-2.5 text-sm pr-8">
+              <option value="">— Select —</option>
+              <option value="AC">Abbasia Campus (AC)</option>
+              <option value="BJC">Baghdad Campus (BJC)</option>
+              <option value="KH_FC">Khawaja Fareed Campus (KH.FC)</option>
+            </select>
+            <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs" style="color:var(--muted)">▾</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STOP MODE ── -->
+    <div id="stopMode" style="display:none">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label class="block text-xs mono mb-1" style="color:var(--muted)">BOARDING STOP</label>
+          <div class="ac-wrap">
+            <input type="text" id="fromStopInput" placeholder="e.g. Satellite Town" class="rounded-lg px-3 py-2.5 text-sm" autocomplete="off"/>
+            <div class="ac-list" id="fromStopList"></div>
+          </div>
+          <input type="hidden" id="fromStopVal"/>
+        </div>
+        <div>
+          <label class="block text-xs mono mb-1" style="color:var(--muted)">DESTINATION STOP</label>
+          <div class="ac-wrap">
+            <input type="text" id="toStopInput" placeholder="e.g. Baghdad Campus (BJC)" class="rounded-lg px-3 py-2.5 text-sm" autocomplete="off"/>
+            <div class="ac-list" id="toStopList"></div>
+          </div>
+          <input type="hidden" id="toStopVal"/>
+        </div>
+      </div>
+      <p class="mt-2 text-xs mono" style="color:var(--muted)">
+        💡 Type any stop — campuses, colonies, bus stands, landmarks
+      </p>
+    </div>
+
+    <!-- Shared filters -->
+    <div class="grid grid-cols-2 gap-4 mt-4">
+      <div>
+        <label class="block text-xs mono mb-1" style="color:var(--muted)">DAY</label>
+        <div class="relative">
+          <select id="dayType" class="rounded-lg px-3 py-2.5 text-sm pr-8">
+            <option value="auto">Auto (today)</option>
+            <option value="weekday">Mon – Fri</option>
+            <option value="saturday">Saturday</option>
+          </select>
+          <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs" style="color:var(--muted)">▾</span>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs mono mb-1" style="color:var(--muted)">SHIFT</label>
+        <div class="relative">
+          <select id="shiftFilter" class="rounded-lg px-3 py-2.5 text-sm pr-8">
+            <option value="all">All Shifts</option>
+            <option value="morning">Morning</option>
+            <option value="afternoon">Afternoon</option>
+            <option value="evening">Evening</option>
+          </select>
+          <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs" style="color:var(--muted)">▾</span>
+        </div>
+      </div>
+    </div>
+
+    <button onclick="handleSearch()"
+      class="mt-4 w-full py-3 rounded-lg font-bold text-sm uppercase transition-all"
+      style="background:var(--green);color:#0a0f0d;letter-spacing:0.1em"
+      onmouseover="this.style.background='#00a558'" onmouseout="this.style.background='var(--green)'">
+      🔍 Search Buses
+    </button>
+  </div>
+
+  <div id="results"></div>
+
+  <!-- Contact -->
+  <div class="mt-10 result-card p-5">
+    <div class="text-xs mono mb-3" style="color:var(--muted)">CONTACT FOR INFORMATION</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+      <div><div class="text-xs mb-1" style="color:var(--muted)">Morning (AC → BJC / KH.FC)</div><div class="mono" style="color:var(--green)">0349-4417157</div></div>
+      <div><div class="text-xs mb-1" style="color:var(--muted)">Morning (BJC → AC)</div><div class="mono" style="color:var(--green)">0306-8153213</div></div>
+      <div><div class="text-xs mb-1" style="color:var(--muted)">Evening (AC → BJC / KH.FC)</div><div class="mono" style="color:var(--green)">0300-8742694</div></div>
+      <div><div class="text-xs mb-1" style="color:var(--muted)">Evening (BJC → AC)</div><div class="mono" style="color:var(--green)">0308-2511630</div></div>
+      <div class="sm:col-span-2"><div class="text-xs mb-1" style="color:var(--muted)">Complaint WhatsApp</div><div class="mono" style="color:var(--accent)">0300-6809094</div></div>
+    </div>
+  </div>
+
+  <div class="text-center mt-6 mono text-xs" style="color:var(--muted)">
+    Principal Transport Officer: Sammar Waheed · IUB Bahawalpur
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// STOP ARRAYS — ordered along each route direction
+// ═══════════════════════════════════════════════════
+const STOPS_AC_BJC = [
+  "Abbasia Campus (AC)", "Islami Colony Gate", "Gulshan Colony",
+  "Circular Road", "Farid Gate", "Civil Lines", "General Bus Stand",
+  "Model Town A", "Model Town B", "Satellite Town",
+  "Officers Colony", "Staff Colony", "School Bus Stop", "Baghdad Campus (BJC)"
+];
+const STOPS_BJC_AC = [
+  "Baghdad Campus (BJC)", "School Bus Stop", "Staff Colony",
+  "Officers Colony", "Satellite Town", "Model Town B", "Model Town A",
+  "General Bus Stand", "Civil Lines", "Farid Gate", "Circular Road",
+  "Gulshan Colony", "Islami Colony Gate", "Abbasia Campus (AC)"
+];
+const STOPS_AC_KHFC = [
+  "Abbasia Campus (AC)", "Gulshan Colony", "Circular Road",
+  "Bahawalpur Railway Station", "Satellite Town",
+  "Dera Nawab Road", "Khawaja Fareed Campus (KH.FC)"
+];
+const STOPS_KHFC_AC = [
+  "Khawaja Fareed Campus (KH.FC)", "Dera Nawab Road", "Satellite Town",
+  "Bahawalpur Railway Station", "Circular Road",
+  "Gulshan Colony", "Abbasia Campus (AC)"
+];
+const STOPS_AC_BJC_SAT = [
+  "Abbasia Campus (AC)", "Satellite Town", "Officers Colony",
+  "Staff Colony", "Baghdad Campus (BJC)"
+];
+const STOPS_BJC_AC_SAT = [
+  "Baghdad Campus (BJC)", "Staff Colony", "Officers Colony",
+  "Satellite Town", "Abbasia Campus (AC)"
+];
+const STOPS_AC_KHFC_SAT = ["Abbasia Campus (AC)", "Khawaja Fareed Campus (KH.FC)"];
+const STOPS_KHFC_AC_SAT = ["Khawaja Fareed Campus (KH.FC)", "Abbasia Campus (AC)"];
+
+// All unique stop names for autocomplete
+const ALL_STOPS = [...new Set([
+  ...STOPS_AC_BJC, ...STOPS_BJC_AC,
+  ...STOPS_AC_KHFC, ...STOPS_KHFC_AC
+])].sort();
+
+// ═══════════════════════════════════════════════════
+// TIMETABLE
+// ═══════════════════════════════════════════════════
+const timetable = [
+  // ── WEEKDAY MORNING ──
+  { day:"weekday", shift:"morning",   time:"07:30", from:"AC",    to:"BJC",   routes:["5-6-7-8-9-10-12-13-14-15-16-17S-18S-19S-20S"],                                            stops: STOPS_AC_BJC },
+  { day:"weekday", shift:"morning",   time:"08:30", from:"AC",    to:"BJC",   routes:["1-2-3-4-9-10-11-12-13-14-15-16-17-18-19-20-21S-22S-23S-24S-25-28-29-30-SB1-SB2"],        stops: STOPS_AC_BJC },
+  { day:"weekday", shift:"morning",   time:"09:30", from:"AC",    to:"BJC",   routes:["3-5-6-7-8-9-10-11-12-13-14-15-16-17S-18S-19S-20S-21-22-23-24-25-26-27-28-29-30-SB1-SB2"],stops: STOPS_AC_BJC },
+  { day:"weekday", shift:"morning",   time:"07:00", from:"BJC",   to:"AC",    routes:["1S-2-3"],                                                                                  stops: STOPS_BJC_AC },
+  { day:"weekday", shift:"morning",   time:"08:00", from:"BJC",   to:"AC",    routes:["5-6-7-8-9-10-12-13-14-15-16-17S-18S-19S-20S"],                                            stops: STOPS_BJC_AC },
+  { day:"weekday", shift:"morning",   time:"09:00", from:"BJC",   to:"AC",    routes:["1-2-3-4-9-10-11-12-13-14-15-16-17-18-19-20-21S-22S-23S-24S-25-26-27-28-29-30-SB1-SB2"],  stops: STOPS_BJC_AC },
+  { day:"weekday", shift:"morning",   time:"07:30", from:"AC",    to:"KH_FC", routes:["1-2-3-4"],          stops: STOPS_AC_KHFC },
+  { day:"weekday", shift:"morning",   time:"08:30", from:"AC",    to:"KH_FC", routes:["5-6-7-8"],          stops: STOPS_AC_KHFC },
+  { day:"weekday", shift:"morning",   time:"09:30", from:"AC",    to:"KH_FC", routes:["1-2-4"],            stops: STOPS_AC_KHFC },
+  { day:"weekday", shift:"morning",   time:"11:30", from:"AC",    to:"KH_FC", routes:["1-2-4"],            stops: STOPS_AC_KHFC },
+  { day:"weekday", shift:"morning",   time:"08:00", from:"KH_FC", to:"AC",    routes:["1-2-3-4"],          stops: STOPS_KHFC_AC },
+  { day:"weekday", shift:"morning",   time:"09:00", from:"KH_FC", to:"AC",    routes:["5-6-7-8"],          stops: STOPS_KHFC_AC },
+  { day:"weekday", shift:"morning",   time:"10:00", from:"KH_FC", to:"AC",    routes:["1-2-4"],            stops: STOPS_KHFC_AC },
+  { day:"weekday", shift:"morning",   time:"12:00", from:"KH_FC", to:"AC",    routes:["1-2-4"],            stops: STOPS_KHFC_AC },
+  // ── WEEKDAY AFTERNOON ──
+  { day:"weekday", shift:"afternoon", time:"12:30", from:"AC",    to:"BJC",   routes:["1-2-3-4-9-10-11-12-13-14-15-16-17-18-19-20-21S-22S-23S-24S-25-26-27-28-29-30"],          stops: STOPS_AC_BJC },
+  { day:"weekday", shift:"afternoon", time:"13:30", from:"AC",    to:"BJC",   routes:["5-6-7-8-9-10-11-12-13-14-15-16-17S-18S-19S-20S-21-22-23-24-25-26-27-29-30"],             stops: STOPS_AC_BJC },
+  { day:"weekday", shift:"afternoon", time:"15:00", from:"AC",    to:"BJC",   routes:["1-2-3-4-9-10-11-12-13-14-15-16-17-18-19-20-21S-22S-23S-24S-25-26-27-28-29-30"],          stops: STOPS_AC_BJC },
+  { day:"weekday", shift:"afternoon", time:"12:00", from:"BJC",   to:"AC",    routes:["3-5-6-7-8-9-10-11-12-13-14-15-16-17S-18S-19S-20S-21-22-23-24-25-26-27-28-29-30-SB1"],    stops: STOPS_BJC_AC },
+  { day:"weekday", shift:"afternoon", time:"13:00", from:"BJC",   to:"AC",    routes:["1-2-3-4-9-10-11-12-13-14-15-16-17-18-19-20-21S-22S-23S-24S-25-26-27-28-29-30"],          stops: STOPS_BJC_AC },
+  { day:"weekday", shift:"afternoon", time:"14:00", from:"BJC",   to:"AC",    routes:["5-6-7-8-9-10-11-12-14-15-17SR-18S-19S-20S-21-22-23-24-25-26-27-29-30"],                  stops: STOPS_BJC_AC },
+  { day:"weekday", shift:"afternoon", time:"12:30", from:"AC",    to:"KH_FC", routes:["5-6-7-8"],          stops: STOPS_AC_KHFC },
+  { day:"weekday", shift:"afternoon", time:"13:30", from:"AC",    to:"KH_FC", routes:["1-2-28-4"],         stops: STOPS_AC_KHFC },
+  { day:"weekday", shift:"afternoon", time:"15:00", from:"AC",    to:"KH_FC", routes:["5-6-7-8"],          stops: STOPS_AC_KHFC },
+  { day:"weekday", shift:"afternoon", time:"13:00", from:"KH_FC", to:"AC",    routes:["5-6-7-8"],          stops: STOPS_KHFC_AC },
+  { day:"weekday", shift:"afternoon", time:"14:00", from:"KH_FC", to:"AC",    routes:["1-2-28-4"],         stops: STOPS_KHFC_AC },
+  { day:"weekday", shift:"afternoon", time:"16:00", from:"KH_FC", to:"AC",    routes:["5-6-7-8"],          stops: STOPS_KHFC_AC },
+  // ── WEEKDAY EVENING ──
+  { day:"weekday", shift:"evening",   time:"16:30", from:"AC",    to:"BJC",   routes:["1-2-3-4-5-6-7-8-9-10-12-13-15-17S-18S-19S-20S-21-22-23-24-25-28-29-30"],                 stops: STOPS_AC_BJC },
+  { day:"weekday", shift:"evening",   time:"17:30", from:"AC",    to:"BJC",   routes:["11-23-25S-26S-27-28-30"],                                                                  stops: STOPS_AC_BJC },
+  { day:"weekday", shift:"evening",   time:"18:30", from:"AC",    to:"BJC",   routes:["26-27"],            stops: STOPS_AC_BJC },
+  { day:"weekday", shift:"evening",   time:"16:00", from:"BJC",   to:"AC",    routes:["1-2-3-4-9-10-11-12-13-14-15-16-17-18-19-20-21S-22S-23S-24S-25-26-27-28-29-30"],          stops: STOPS_BJC_AC },
+  { day:"weekday", shift:"evening",   time:"17:00", from:"BJC",   to:"AC",    routes:["4-5-6-7-8-9-10-12-13-14-15-17S-18S-19S-20S-21-22-23-24-25-29-30"],                       stops: STOPS_BJC_AC },
+  { day:"weekday", shift:"evening",   time:"18:00", from:"BJC",   to:"AC",    routes:["11-23-25S-26S-27-28-29-30"],                                                               stops: STOPS_BJC_AC },
+  { day:"weekday", shift:"evening",   time:"16:30", from:"AC",    to:"KH_FC", routes:["11-16-26-27"],      stops: STOPS_AC_KHFC },
+  { day:"weekday", shift:"evening",   time:"17:30", from:"AC",    to:"KH_FC", routes:["21-22-24"],         stops: STOPS_AC_KHFC },
+  { day:"weekday", shift:"evening",   time:"18:30", from:"AC",    to:"KH_FC", routes:["28-29"],            stops: STOPS_AC_KHFC },
+  { day:"weekday", shift:"evening",   time:"17:00", from:"KH_FC", to:"AC",    routes:["11-16-26-27"],      stops: STOPS_KHFC_AC },
+  { day:"weekday", shift:"evening",   time:"18:00", from:"KH_FC", to:"AC",    routes:["21-22-24"],         stops: STOPS_KHFC_AC },
+  { day:"weekday", shift:"evening",   time:"18:45", from:"KH_FC", to:"AC",    routes:["28-29"],            stops: STOPS_KHFC_AC },
+  // ── SATURDAY ──
+  { day:"saturday", shift:"morning",   time:"07:30", from:"AC",    to:"BJC",   routes:["32S-33S-34-35-36-37-38"], stops: STOPS_AC_BJC_SAT },
+  { day:"saturday", shift:"morning",   time:"08:30", from:"AC",    to:"BJC",   routes:["32S-33S-34-35-36-37-38"], stops: STOPS_AC_BJC_SAT },
+  { day:"saturday", shift:"morning",   time:"12:00", from:"AC",    to:"BJC",   routes:["32S-33S-34-35-36-37-38"], stops: STOPS_AC_BJC_SAT },
+  { day:"saturday", shift:"afternoon", time:"13:00", from:"AC",    to:"BJC",   routes:["32S-33S-34-35-36-37-38"], stops: STOPS_AC_BJC_SAT },
+  { day:"saturday", shift:"evening",   time:"16:30", from:"AC",    to:"BJC",   routes:["32S-33S-34-35-36"],       stops: STOPS_AC_BJC_SAT },
+  { day:"saturday", shift:"evening",   time:"17:30", from:"AC",    to:"BJC",   routes:["32S-33S-34-35-36"],       stops: STOPS_AC_BJC_SAT },
+  { day:"saturday", shift:"morning",   time:"07:00", from:"BJC",   to:"AC",    routes:["32S-33"],                 stops: STOPS_BJC_AC_SAT },
+  { day:"saturday", shift:"morning",   time:"08:00", from:"BJC",   to:"AC",    routes:["32S-33S-34-35-36-37-38"], stops: STOPS_BJC_AC_SAT },
+  { day:"saturday", shift:"morning",   time:"09:00", from:"BJC",   to:"AC",    routes:["32S-33S-34-35-36-37-38"], stops: STOPS_BJC_AC_SAT },
+  { day:"saturday", shift:"afternoon", time:"12:30", from:"BJC",   to:"AC",    routes:["32S-33S-34-35-36-37-38"], stops: STOPS_BJC_AC_SAT },
+  { day:"saturday", shift:"afternoon", time:"13:30", from:"BJC",   to:"AC",    routes:["32S-33S-34-35-36-37-38"], stops: STOPS_BJC_AC_SAT },
+  { day:"saturday", shift:"evening",   time:"16:00", from:"BJC",   to:"AC",    routes:["32S-33S-34-35-36"],       stops: STOPS_BJC_AC_SAT },
+  { day:"saturday", shift:"evening",   time:"17:00", from:"BJC",   to:"AC",    routes:["32S-33S-34-35-36"],       stops: STOPS_BJC_AC_SAT },
+  { day:"saturday", shift:"morning",   time:"07:30", from:"AC",    to:"KH_FC", routes:["31"], stops: STOPS_AC_KHFC_SAT },
+  { day:"saturday", shift:"morning",   time:"08:30", from:"AC",    to:"KH_FC", routes:["31"], stops: STOPS_AC_KHFC_SAT },
+  { day:"saturday", shift:"morning",   time:"09:30", from:"AC",    to:"KH_FC", routes:["31"], stops: STOPS_AC_KHFC_SAT },
+  { day:"saturday", shift:"afternoon", time:"12:30", from:"AC",    to:"KH_FC", routes:["31"], stops: STOPS_AC_KHFC_SAT },
+  { day:"saturday", shift:"afternoon", time:"13:00", from:"AC",    to:"KH_FC", routes:["31"], stops: STOPS_AC_KHFC_SAT },
+  { day:"saturday", shift:"afternoon", time:"16:30", from:"AC",    to:"KH_FC", routes:["31"], stops: STOPS_AC_KHFC_SAT },
+  { day:"saturday", shift:"morning",   time:"07:45", from:"KH_FC", to:"AC",    routes:["31"], stops: STOPS_KHFC_AC_SAT },
+  { day:"saturday", shift:"morning",   time:"08:15", from:"KH_FC", to:"AC",    routes:["31"], stops: STOPS_KHFC_AC_SAT },
+  { day:"saturday", shift:"morning",   time:"10:00", from:"KH_FC", to:"AC",    routes:["31"], stops: STOPS_KHFC_AC_SAT },
+  { day:"saturday", shift:"afternoon", time:"12:45", from:"KH_FC", to:"AC",    routes:["31"], stops: STOPS_KHFC_AC_SAT },
+  { day:"saturday", shift:"afternoon", time:"13:45", from:"KH_FC", to:"AC",    routes:["31"], stops: STOPS_KHFC_AC_SAT },
+  { day:"saturday", shift:"evening",   time:"17:00", from:"KH_FC", to:"AC",    routes:["31"], stops: STOPS_KHFC_AC_SAT },
+];
+
+const campusLabel = { AC:"Abbasia Campus", BJC:"Baghdad Campus", KH_FC:"Khawaja Fareed Campus" };
+const campusShort = { AC:"AC", BJC:"BJC", KH_FC:"KH.FC" };
+
+// ═══════════════════════════════════════════════════
+// MODE
+// ═══════════════════════════════════════════════════
+let currentMode = 'campus';
+function setMode(m) {
+  currentMode = m;
+  document.getElementById('campusMode').style.display = m==='campus' ? '' : 'none';
+  document.getElementById('stopMode').style.display   = m==='stop'   ? '' : 'none';
+  document.getElementById('btnCampus').classList.toggle('active', m==='campus');
+  document.getElementById('btnStop').classList.toggle('active',   m==='stop');
+  document.getElementById('results').innerHTML = '';
+}
+
+// ═══════════════════════════════════════════════════
+// AUTOCOMPLETE
+// ═══════════════════════════════════════════════════
+function hl(text, q) {
+  if (!q) return text;
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i === -1) return text;
+  return text.slice(0,i) + '<mark>' + text.slice(i, i+q.length) + '</mark>' + text.slice(i+q.length);
+}
+
+function setupAC(inputId, listId, hiddenId, otherId) {
+  const input  = document.getElementById(inputId);
+  const list   = document.getElementById(listId);
+  const hidden = document.getElementById(hiddenId);
+  let ki = -1;
+
+  function show(q) {
+    const matches = q.trim()
+      ? ALL_STOPS.filter(s => s.toLowerCase().includes(q.toLowerCase()))
+      : ALL_STOPS;
+    if (!matches.length) { list.classList.remove('open'); return; }
+    list.innerHTML = matches.map((s,i) =>
+      `<div class="ac-item" data-val="${s}" data-i="${i}">${hl(s,q)}</div>`
+    ).join('');
+    list.classList.add('open'); ki = -1;
+    list.querySelectorAll('.ac-item').forEach(el => {
+      el.addEventListener('mousedown', e => { e.preventDefault(); pick(el.dataset.val); });
+    });
+  }
+
+  function pick(val) {
+    input.value = val; hidden.value = val;
+    list.classList.remove('open'); ki = -1;
+    // auto-search when both sides filled
+    if (document.getElementById(otherId).value) handleSearch();
+  }
+
+  input.addEventListener('input',  () => { hidden.value=''; show(input.value); });
+  input.addEventListener('focus',  () => show(input.value));
+  input.addEventListener('keydown', e => {
+    const items = [...list.querySelectorAll('.ac-item')];
+    if (!list.classList.contains('open') || !items.length) return;
+    if (e.key==='ArrowDown') { e.preventDefault(); ki=Math.min(ki+1,items.length-1); items.forEach((it,i)=>it.classList.toggle('kbd-active',i===ki)); items[ki]?.scrollIntoView({block:'nearest'}); }
+    else if (e.key==='ArrowUp') { e.preventDefault(); ki=Math.max(ki-1,0); items.forEach((it,i)=>it.classList.toggle('kbd-active',i===ki)); }
+    else if (e.key==='Enter') { e.preventDefault(); if (ki>=0&&items[ki]) pick(items[ki].dataset.val); else if (items.length===1) pick(items[0].dataset.val); }
+    else if (e.key==='Escape') list.classList.remove('open');
+  });
+  document.addEventListener('click', e => {
+    if (!input.contains(e.target) && !list.contains(e.target)) list.classList.remove('open');
+  });
+}
+
+setupAC('fromStopInput','fromStopList','fromStopVal','toStopVal');
+setupAC('toStopInput',  'toStopList',  'toStopVal',  'fromStopVal');
+
+// ═══════════════════════════════════════════════════
+// CLOCK & HELPERS
+// ═══════════════════════════════════════════════════
+function updateClock() {
+  document.getElementById('liveClock').textContent =
+    new Date().toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:true});
+}
+updateClock(); setInterval(updateClock, 1000);
+
+function todayType() { const d=new Date().getDay(); return d===6?'saturday':d===0?null:'weekday'; }
+function t2m(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
+function nowM() { const n=new Date(); return n.getHours()*60+n.getMinutes(); }
+function toAMPM(mins) {
+  const h=Math.floor(mins/60),m=mins%60,ap=h>=12?'PM':'AM';
+  const hh=h>12?h-12:h===0?12:h;
+  return `${hh}:${m.toString().padStart(2,'0')} ${ap}`;
+}
+
+function resolveDay() {
+  const v = document.getElementById('dayType').value;
+  return v==='auto' ? todayType() : v;
+}
+
+// ═══════════════════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════════════════
+function handleSearch() {
+  currentMode==='campus' ? searchByCampus() : searchByStop();
+}
+
+function searchByCampus() {
+  const from  = document.getElementById('fromCampus').value;
+  const to    = document.getElementById('toCampus').value;
+  const day   = resolveDay();
+  const shift = document.getElementById('shiftFilter').value;
+  if (!from||!to)  return err('Please select both campuses.');
+  if (from===to)   return err('From and To cannot be the same!');
+  if (!day)        return sunday();
+  const res = timetable
+    .filter(b=>b.from===from&&b.to===to&&b.day===day&&(shift==='all'||b.shift===shift))
+    .sort((a,b)=>t2m(a.time)-t2m(b.time));
+  renderResults(res, null, null, `${campusLabel[from]||from} → ${campusLabel[to]||to}`);
+}
+
+function searchByStop() {
+  // Accept typed text even if no autocomplete pick was made (graceful)
+  const fromStop = document.getElementById('fromStopVal').value || document.getElementById('fromStopInput').value.trim();
+  const toStop   = document.getElementById('toStopVal').value   || document.getElementById('toStopInput').value.trim();
+  const day   = resolveDay();
+  const shift = document.getElementById('shiftFilter').value;
+  if (!fromStop||!toStop) return err('Please enter both stops.');
+  if (fromStop===toStop)  return err('Boarding and destination stops cannot be the same!');
+  if (!day) return sunday();
+
+  const res = timetable.filter(b => {
+    if (b.day!==day) return false;
+    if (shift!=='all'&&b.shift!==shift) return false;
+    const fi = b.stops.findIndex(s => s.toLowerCase()===fromStop.toLowerCase());
+    const ti = b.stops.findIndex(s => s.toLowerCase()===toStop.toLowerCase());
+    return fi!==-1 && ti!==-1 && fi<ti;   // ← both stops exist AND in correct order
+  }).sort((a,b)=>t2m(a.time)-t2m(b.time));
+
+  renderResults(res, fromStop, toStop, `${fromStop} → ${toStop}`);
+}
+
+function err(msg) {
+  document.getElementById('results').innerHTML =
+    `<div class="result-card p-5 text-center text-sm" style="color:var(--muted)">${msg}</div>`;
+}
+function sunday() {
+  document.getElementById('results').innerHTML = `
+    <div class="empty-state result-card p-10">
+      <div style="font-size:3rem">🚫</div>
+      <div class="text-lg font-bold mt-3" style="color:var(--text)">No Sunday Service</div>
+      <div class="text-sm mt-1" style="color:var(--muted)">IUB transport does not run on Sundays.</div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════
+function renderResults(results, fromStop, toStop, label) {
+  const el = document.getElementById('results');
+  if (!results.length) {
+    el.innerHTML = `<div class="empty-state result-card p-10">
+      <div style="font-size:3rem">🔍</div>
+      <div class="text-lg font-bold mt-3" style="color:var(--text)">No Buses Found</div>
+      <div class="text-sm mt-1" style="color:var(--muted)">Try a different shift, day, or stop combination.</div>
+    </div>`; return;
+  }
+  const now = nowM();
+  const upcoming = results.filter(b=>t2m(b.time)>=now);
+  const past     = results.filter(b=>t2m(b.time)<now);
+  const sc = {morning:'tag-morning',afternoon:'tag-afternoon',evening:'tag-evening'};
+
+  let html = `<div class="mono text-xs mb-3" style="color:var(--muted)">
+    ${results.length} bus${results.length>1?'es':''} · <span style="color:var(--text)">${label}</span>
+    <span class="ml-2" style="color:var(--green)">${upcoming.length} upcoming</span>
+  </div>`;
+
+  const card = (bus, idx) => {
+    const mins   = t2m(bus.time) - now;
+    const isPast = mins < 0;
+    const isSoon = mins>=0 && mins<=30;
+
+    // Countdown badge
+    let cd = '';
+    if (!isPast) {
+      if (mins===0)    cd=`<span class="countdown-badge soon">🚌 NOW</span>`;
+      else if (mins<60)cd=`<span class="countdown-badge ${isSoon?'soon':''}">in ${mins}m</span>`;
+      else { const h=Math.floor(mins/60),m=mins%60; cd=`<span class="countdown-badge">in ${h}h${m?m+'m':''}</span>`; }
+    } else {
+      cd=`<span class="tag" style="background:rgba(80,80,80,0.12);color:#555;border:1px solid #2a2a2a">Departed</span>`;
+    }
+
+    // Locate the user-chosen stops in this bus's stop array
+    const fi = fromStop ? bus.stops.findIndex(s=>s.toLowerCase()===fromStop.toLowerCase()) : -1;
+    const ti = toStop   ? bus.stops.findIndex(s=>s.toLowerCase()===toStop.toLowerCase())   : -1;
+    const hasSegment = fi!==-1 && ti!==-1;
+
+    // Build timeline
+    const timeline = bus.stops.map((s, i) => {
+      const isFrom = hasSegment && i===fi;
+      const isTo   = hasSegment && i===ti;
+      // Is this stop "in segment" (between from and to inclusive)?
+      const inSeg  = hasSegment ? (i>=fi && i<=ti) : true;
+      const isLast = i===bus.stops.length-1;
+      // Line between this stop and next — is it the active segment?
+      const lineActive = hasSegment && i>=fi && i<ti;
+
+      return `
+      <div class="stop-row ${(!inSeg&&hasSegment)?'outside':''}">
+        <div class="stop-col" style="min-height:${isLast?'auto':'28px'}">
+          <div class="stop-dot ${isFrom?'is-from':''} ${isTo?'is-to':''}"></div>
+          ${!isLast ? `<div class="stop-line ${lineActive?'active':''}"></div>` : ''}
+        </div>
+        <div class="stop-name ${isFrom?'is-from':''} ${isTo?'is-to':''}">${s}</div>
+      </div>`;
+    }).join('');
+
+    return `
+    <div class="result-card p-5 mb-3 ${isPast?'opacity-40':''}" style="animation-delay:${idx*0.05}s">
+      <div class="flex items-start justify-between flex-wrap gap-2 mb-3">
+        <div class="flex items-center gap-3">
+          <div class="big-time">${toAMPM(t2m(bus.time))}</div>
+          <div class="flex gap-1 flex-wrap">
+            <span class="tag ${sc[bus.shift]||'tag-morning'}">${bus.shift}</span>
+            ${bus.day==='saturday'?'<span class="tag tag-saturday">Sat</span>':''}
+          </div>
+        </div>
+        ${cd}
+      </div>
+
+      <div class="flex items-center gap-2 mb-3 text-xs mono" style="color:var(--muted)">
+        <span style="color:var(--green);font-weight:700">${campusShort[bus.from]||bus.from}</span>
+        <span>→</span>
+        <span style="color:var(--accent);font-weight:700">${campusShort[bus.to]||bus.to}</span>
+        <span>(full route)</span>
+      </div>
+
+      <div class="stop-timeline">${timeline}</div>
+
+      <div class="mt-3 pt-3" style="border-top:1px solid var(--border)">
+        <div class="text-xs mono mb-1" style="color:var(--muted)">ROUTE NOS</div>
+        <div class="text-xs mono" style="color:#3a6a4a;word-break:break-all">${bus.routes.join(' · ')}</div>
+      </div>
+    </div>`;
+  };
+
+  if (upcoming.length) {
+    html += `<div class="text-xs mono mb-2" style="color:var(--green)">▶ UPCOMING</div>`;
+    html += upcoming.map((b,i)=>card(b,i)).join('');
+  }
+  if (past.length) {
+    html += `<div class="text-xs mono mt-5 mb-2" style="color:var(--muted)">▷ EARLIER TODAY</div>`;
+    html += past.map((b,i)=>card(b,i)).join('');
+  }
+  el.innerHTML = html;
+}
+
+// ── Auto-search when campus dropdowns change ──
+['fromCampus','toCampus','dayType','shiftFilter'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', () => {
+    if (currentMode==='campus') {
+      if (document.getElementById('fromCampus').value && document.getElementById('toCampus').value)
+        searchByCampus();
+    }
+  });
+});
+
+// ── Auto-refresh countdown every minute ──
+setInterval(() => {
+  const f=document.getElementById('fromCampus').value, t=document.getElementById('toCampus').value;
+  const fs=document.getElementById('fromStopVal').value, ts=document.getElementById('toStopVal').value;
+  if (currentMode==='campus'&&f&&t) searchByCampus();
+  else if (currentMode==='stop'&&fs&&ts) searchByStop();
+}, 60000);
+</script>
+</body>
+</html>
